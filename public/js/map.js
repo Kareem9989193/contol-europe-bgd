@@ -425,6 +425,75 @@ const EuropeMap = (() => {
     }, { passive: false });
 
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // ─── Mobile Touch Support (Pan, Tap, Pinch Zoom) ───────────────────
+    let touchStartDist = 0;
+    let touchMoved = false;
+    let touchStartTime = 0;
+
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      touchStartTime = Date.now();
+      touchMoved = false;
+
+      if (e.touches.length === 1) {
+        const t = e.touches[0];
+        isDragging = true;
+        dragStartX = t.clientX;
+        dragStartY = t.clientY;
+        lastOffsetX = offsetX;
+        lastOffsetY = offsetY;
+      } else if (e.touches.length === 2) {
+        isDragging = false;
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        touchStartDist = Math.hypot(dx, dy);
+      }
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      touchMoved = true;
+
+      if (e.touches.length === 1 && isDragging) {
+        const t = e.touches[0];
+        offsetX = lastOffsetX + (t.clientX - dragStartX);
+        offsetY = lastOffsetY + (t.clientY - dragStartY);
+      } else if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+
+        if (touchStartDist > 0) {
+          const factor = dist / touchStartDist;
+          scale = Math.max(0.6, Math.min(4.5, scale * factor));
+          touchStartDist = dist;
+        }
+      }
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      isDragging = false;
+
+      // Detect Tap (short duration, minimal move)
+      const touchDuration = Date.now() - touchStartTime;
+      if (!touchMoved || touchDuration < 300) {
+        const t = e.changedTouches[0];
+        if (t) {
+          const rect = canvas.getBoundingClientRect();
+          const sx = (t.clientX - rect.left) * (canvas.width / rect.width);
+          const sy = (t.clientY - rect.top) * (canvas.height / rect.height);
+          const mapCoords = screenToMap(sx, sy);
+          const country = getCountryAtPoint(mapCoords.x, mapCoords.y);
+
+          if (country && onClickCallback) {
+            onClickCallback(country);
+          }
+        }
+      }
+    }, { passive: false });
+
     window.addEventListener('resize', fitToScreen);
   }
 

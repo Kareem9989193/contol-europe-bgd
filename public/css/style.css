@@ -7,6 +7,11 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent !important;
+  outline: none !important;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 :root {
@@ -61,9 +66,9 @@ html, body {
 }
 
 .menu-art-bg {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  width: 100vw;
+  height: 100vh;
+  object-fit: fill;
   display: block;
 }
 
@@ -660,4 +665,92 @@ html, body {
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE ENHANCEMENTS
+   ════════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Prevent scrolling / bouncing on mobile Safari/Chrome */
+  body {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* Main Menu on Mobile Portrait */
+  .menu-stage-wrapper {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .menu-art-bg {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* Don't distort aspect ratio on tall phone screens */
+    background: #02040a;
+  }
+
+  /* Make click hotspots larger and easier to tap on phones */
+  .hotspot-create {
+    left: 20%;
+    bottom: 2%;
+    width: 28%;
+    height: 18%;
+  }
+
+  .hotspot-join {
+    left: 52%;
+    bottom: 2%;
+    width: 28%;
+    height: 18%;
+  }
+
+  /* In-Game HUD on Mobile */
+  .tactical-top-hud {
+    height: 48px;
+    padding: 0 10px;
+  }
+  .hud-title {
+    display: none; /* Save space on small phone screens */
+  }
+  .hud-player-turn {
+    font-size: 12px;
+  }
+  .hud-phase-pill {
+    font-size: 9px;
+    padding: 2px 8px;
+  }
+  .btn-hud-next {
+    padding: 6px 12px;
+    font-size: 10px;
+  }
+  .btn-hud-hq {
+    padding: 5px 8px;
+    font-size: 10px;
+  }
+
+  /* Hide bulky side panels on small mobile screens to keep the map full & clear */
+  .factions-hud-panel {
+    top: 54px;
+    left: 8px;
+    width: 140px;
+    padding: 6px;
+    font-size: 10px;
+    background: rgba(9, 14, 28, 0.8);
+  }
+  .battle-log-hud {
+    display: none; /* Hide battle log on mobile to keep map clean */
+  }
+
+  /* Modals on Mobile */
+  .clean-modal-box {
+    width: 95%;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
 }
