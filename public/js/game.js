@@ -1,201 +1,523 @@
 /**
- * game.js — Game Logic + Socket.io Client
- * Handles lobby, game flow, combat, and server communication
+ * game.js — Grand-Strategy Game Controller & Network Sync
+ * Coordinates server rooms, AI skirmish fallback, turns, combat, and HUD
  */
 
 const Game = (() => {
   let socket = null;
-  let playerName = '';
+  let playerName = 'Commander Alpha';
   let roomState = null;
   let selectedFrom = null;
+  let isBotGame = false;
 
-  const PLAYER_COLORS_CSS = [
-    '#00e5ff', '#ff4081', '#ffd740', '#76ff03', '#ff9100', '#b388ff',
-  ];
+  const FACTION_COLORS = ['#00f0ff', '#ef4444', '#ffd700', '#10f070', '#f59e0b', '#a855f7'];
 
-  // ─── Socket Connection ───────────────────────────────────────────────
+  // ─── Network Connection ──────────────────────────────────────────────
   function connect() {
-    socket = io();
-
-    socket.on('connect', () => {
-      console.log('Connected:', socket.id);
-    });
-
-    socket.on('rooms-updated', (rooms) => {
-      renderRoomsList(rooms);
-    });
-
-    socket.on('room-state', (state) => {
-      roomState = state;
-      updateGameUI();
-      EuropeMap.setGameState(state);
-    });
-
-    socket.on('game-started', () => {
-      showScreen('game-screen');
-    });
-
-    socket.on('combat-result', (result) => {
-      showCombatAnimation(result);
-      addCombatLogEntry(result);
-    });
-
-    socket.on('game-over', ({ winner, winnerName }) => {
-      showVictory(winnerName, winner === socket.id);
-    });
-
-    socket.on('chat-message', (msg) => {
-      addChatMessage(msg);
-    });
-  }
-
-  // ─── Screen Management ───────────────────────────────────────────────
-  function showScreen(id) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-  }
-
-  // ─── Lobby ───────────────────────────────────────────────────────────
-  function enterLobby(name) {
-    playerName = name;
-    document.getElementById('lobby-player-name').textContent = `Commander: ${name}`;
-    showScreen('lobby-screen');
-    socket.emit('get-rooms', (rooms) => {
-      renderRoomsList(rooms);
-    });
-  }
-
-  function createRoom(roomName, maxPlayers) {
-    socket.emit('create-room', { name: roomName, maxPlayers, playerName }, (res) => {
-      if (res.success) {
-        socket.emit('get-room-state', (state) => {
-          roomState = state;
-          showWaitingRoom();
-        });
-      }
-    });
-  }
-
-  function joinRoom(roomId) {
-    socket.emit('join-room', { roomId, playerName }, (res) => {
-      if (res.success) {
-        socket.emit('get-room-state', (state) => {
-          roomState = state;
-          showWaitingRoom();
-        });
-      } else {
-        alert(res.error || 'Could not join room');
-      }
-    });
-  }
-
-  function renderRoomsList(rooms) {
-    const list = document.getElementById('rooms-list');
-    const waitingRooms = rooms.filter(r => r.state === 'waiting');
-
-    if (waitingRooms.length === 0) {
-      list.innerHTML = '<p class="no-rooms">No rooms available. Create one!</p>';
-      return;
-    }
-
-    list.innerHTML = waitingRooms.map(room => `
-      <div class="room-item" data-room-id="${room.id}">
-        <div class="room-item-info">
-          <div class="room-item-name">${escapeHtml(room.name)}</div>
-          <div class="room-item-players">👥 ${room.players}/${room.maxPlayers} players</div>
-        </div>
-        <button class="btn btn-primary btn-sm join-room-btn" style="margin-top:0;width:auto;">JOIN</button>
-      </div>
-    `).join('');
-
-    list.querySelectorAll('.join-room-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const roomId = e.target.closest('.room-item').dataset.roomId;
-        joinRoom(roomId);
+    try {
+      socket = io({
+        reconnectionAttempts: 5,
+        timeout: 8000,
       });
-    });
+
+      socket.on('connect', () => {
+        console.log('📡 Connected to Europe Conquest Server:', socket.id);
+      });
+
+      socket.on('rooms-updated', (rooms) => {
+        renderLobbyRooms(rooms);
+      });
+
+      socket.on('room-state', (state) => {
+        roomState = state;
+        updateTacticalHUD();
+        EuropeMap.setGameState(state);
+      });
+
+      socket.on('game-started', () => {
+        closeAllModals();
+        showScreen('game-screen');
+      });
+
+      socket.on('combat-result', (result) => {
+        triggerCombatClashModal(result);
+        appendBattleIntel(result);
+      });
+
+      socket.on('game-over', ({ winner, winnerName }) => {
+        triggerVictoryBanner(winnerName, winner === (socket ? socket.id : 'me'));
+      });
+
+      socket.on('chat-message', (msg) => {
+        appendCommsMessage(msg);
+      });
+
+      socket.on('connect_error', () => {
+        console.warn('⚠️ Server unreachable. AI Battle Mode available.');
+      });
+    } catch (e) {
+      console.warn('Running in standalone/offline mode:', e);
+    }
   }
 
-  // ─── Waiting Room ────────────────────────────────────────────────────
-  function showWaitingRoom() {
-    showScreen('waiting-screen');
-    updateWaitingRoom();
+  // ─── Screen & Modal Controls ─────────────────────────────────────────
+  function showScreen(screenId) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const target = document.getElementById(screenId);
+    if (target) target.classList.add('active');
   }
 
-  function updateWaitingRoom() {
-    if (!roomState) return;
-
-    document.getElementById('waiting-room-name').textContent = roomState.name;
-
-    const playersDiv = document.getElementById('waiting-players');
-    playersDiv.innerHTML = Object.values(roomState.players).map((p, i) => `
-      <div class="waiting-player" style="animation-delay: ${i * 0.1}s">
-        <div class="player-color-dot" style="color: ${PLAYER_COLORS_CSS[p.colorIndex]}; background: ${PLAYER_COLORS_CSS[p.colorIndex]};"></div>
-        <span class="waiting-player-name">${escapeHtml(p.name)}</span>
-        ${p.id === roomState.hostId ? '<span class="host-tag">HOST</span>' : ''}
-      </div>
-    `).join('');
-
-    const startBtn = document.getElementById('start-game-btn');
-    const isHost = roomState.hostId === socket.id;
-    const hasEnoughPlayers = Object.keys(roomState.players).length >= 2;
-    startBtn.style.display = isHost ? 'inline-flex' : 'none';
-    startBtn.disabled = !hasEnoughPlayers;
-    startBtn.style.opacity = hasEnoughPlayers ? 1 : 0.5;
+  function openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) modal.style.display = 'flex';
   }
 
-  // ─── Game UI ─────────────────────────────────────────────────────────
-  function updateGameUI() {
-    if (!roomState || roomState.state !== 'playing') {
-      if (roomState?.state === 'waiting') {
-        updateWaitingRoom();
-      }
+  function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) modal.style.display = 'none';
+  }
+
+  function closeAllModals() {
+    document.querySelectorAll('.tactical-modal-backdrop').forEach(m => m.style.display = 'none');
+  }
+
+  // ─── Game Creation & Joining ─────────────────────────────────────────
+  function createGame(roomName, maxPlayers, commanderName, mode) {
+    playerName = commanderName;
+    isBotGame = (mode === 'bots');
+
+    if (isBotGame || !socket || !socket.connected) {
+      // Initialize Local AI Grand-Strategy Campaign
+      startLocalCampaign(roomName, maxPlayers, commanderName);
       return;
     }
 
-    const currentPlayerId = roomState.currentPlayer;
-    const currentPlayer = roomState.players[currentPlayerId];
-    const isMyTurn = currentPlayerId === socket.id;
-
-    // Turn info
-    const nameEl = document.getElementById('current-player-name');
-    nameEl.textContent = currentPlayer ? `${currentPlayer.name}'s Turn` : '—';
-    nameEl.style.color = currentPlayer ? PLAYER_COLORS_CSS[currentPlayer.colorIndex] : 'inherit';
-
-    const phaseEl = document.getElementById('current-phase');
-    phaseEl.textContent = roomState.phase.toUpperCase();
-    phaseEl.className = 'phase-badge ' + roomState.phase;
-
-    // Reinforcements
-    const rcEl = document.getElementById('reinforcements-counter');
-    const rcCount = document.getElementById('reinforcements-count');
-    if (roomState.phase === 'reinforce' && isMyTurn) {
-      rcEl.style.display = 'flex';
-      rcCount.textContent = roomState.reinforcementsLeft;
-    } else {
-      rcEl.style.display = 'none';
-    }
-
-    // End phase button
-    const endBtn = document.getElementById('end-phase-btn');
-    endBtn.style.display = isMyTurn ? 'inline-flex' : 'none';
-    if (roomState.phase === 'reinforce') {
-      endBtn.textContent = roomState.reinforcementsLeft > 0 ? 'SKIP REINFORCE →' : 'START ATTACK →';
-    } else if (roomState.phase === 'attack') {
-      endBtn.textContent = 'END ATTACK →';
-    } else {
-      endBtn.textContent = 'END TURN →';
-    }
-
-    // Players list
-    updatePlayersPanel();
+    socket.emit('create-room', { name: roomName, maxPlayers, playerName: commanderName }, (res) => {
+      if (res && res.success) {
+        openWaitingCouncil(res.roomId, roomName, true);
+      }
+    });
   }
 
-  function updatePlayersPanel() {
-    if (!roomState) return;
-    const list = document.getElementById('game-players-list');
-    const territoryCounts = {};
+  function joinGame(roomId, commanderName) {
+    playerName = commanderName;
 
+    if (!socket || !socket.connected) {
+      // Start local room
+      startLocalCampaign('Operation ' + roomId, 4, commanderName);
+      return;
+    }
+
+    socket.emit('join-room', { roomId, playerName: commanderName }, (res) => {
+      if (res && res.success) {
+        openWaitingCouncil(roomId, 'Operation Theater', false);
+      } else {
+        alert(res?.error || 'Unable to join operation theater. Launching local campaign...');
+        startLocalCampaign('Operation Overlord', 4, commanderName);
+      }
+    });
+  }
+
+  function openWaitingCouncil(roomId, roomName, isHost) {
+    closeAllModals();
+    openModal('modal-waiting-room');
+
+    document.getElementById('waiting-room-title').textContent = `OPERATION: ${roomName.toUpperCase()}`;
+    const shareInput = document.getElementById('room-share-link');
+    if (shareInput) {
+      shareInput.value = `${window.location.origin}?room=${roomId}`;
+    }
+
+    const startBtn = document.getElementById('btn-launch-game');
+    if (startBtn) {
+      startBtn.style.display = isHost ? 'inline-flex' : 'none';
+    }
+
+    updateWaitingPlayersGrid();
+  }
+
+  function updateWaitingPlayersGrid() {
+    const grid = document.getElementById('waiting-commanders-grid');
+    if (!grid) return;
+
+    if (roomState?.players) {
+      grid.innerHTML = Object.values(roomState.players).map(p => `
+        <div class="waiting-commander-card ${p.id === socket?.id ? 'me' : ''} ${p.id === roomState.hostId ? 'host' : ''}">
+          <span style="color: ${FACTION_COLORS[p.colorIndex % FACTION_COLORS.length]}">●</span>
+          <span class="name">${escapeHtml(p.name)}</span>
+          ${p.id === roomState.hostId ? '<span class="host-crown">👑 HOST</span>' : ''}
+        </div>
+      `).join('');
+    } else {
+      grid.innerHTML = `
+        <div class="waiting-commander-card me host">
+          <span style="color: #00f0ff">●</span>
+          <span class="name">${escapeHtml(playerName)}</span>
+          <span class="host-crown">👑 HOST</span>
+        </div>
+        <div class="waiting-commander-card">
+          <span style="color: #ef4444">●</span>
+          <span class="name">Allied Commander (Waiting...)</span>
+        </div>
+      `;
+    }
+  }
+
+  function renderLobbyRooms(rooms) {
+    const list = document.getElementById('modal-rooms-list');
+    if (!list) return;
+
+    if (!rooms || rooms.length === 0) {
+      list.innerHTML = `<p style="color:#94a3b8; font-size:12px; text-align:center; padding:16px;">No active multiplayer theaters. Launch one with "CREATE GAME"!</p>`;
+      return;
+    }
+
+    list.innerHTML = rooms.map(r => `
+      <div class="modal-room-item" data-id="${r.id}">
+        <div>
+          <div style="font-weight:700; color:#fff;">${escapeHtml(r.name)}</div>
+          <div style="font-size:10px; color:#94a3b8;">${r.players}/${r.maxPlayers} Commanders • Status: ${r.state.toUpperCase()}</div>
+        </div>
+        <button class="tactical-btn glow-cyan" style="padding:6px 14px; font-size:10px;" onclick="Game.joinGame('${r.id}', document.getElementById('join-player-name').value)">ENTER</button>
+      </div>
+    `).join('');
+  }
+
+  // ─── Local Campaign Mode (Fallback & Bot Play) ────────────────────────
+  function startLocalCampaign(roomName, totalPlayers, commanderName) {
+    isBotGame = true;
+    const countries = Object.keys(EuropeMap.getNodes());
+    const factions = [commanderName, 'Kaiser Recon (AI)', 'General Zhukov (AI)', 'Vanguard Alex (AI)'].slice(0, totalPlayers);
+
+    const players = {};
+    factions.forEach((name, i) => {
+      const pid = i === 0 ? 'me' : `bot_${i}`;
+      players[pid] = { id: pid, name, colorIndex: i, isBot: i > 0, alive: true };
+    });
+
+    // Distribute countries
+    const territories = {};
+    countries.forEach((country, idx) => {
+      const ownerId = Object.keys(players)[idx % factions.length];
+      territories[country] = {
+        owner: ownerId,
+        armies: Math.floor(Math.random() * 2) + 2,
+      };
+    });
+
+    const turnOrder = Object.keys(players);
+
+    roomState = {
+      id: 'local_campaign',
+      name: roomName,
+      players,
+      territories,
+      turnOrder,
+      currentTurnIndex: 0,
+      currentPlayer: turnOrder[0],
+      phase: 'reinforce',
+      reinforcementsLeft: 5,
+      adjacency: getAdjacencyMap(),
+    };
+
+    closeAllModals();
+    showScreen('game-screen');
+    updateTacticalHUD();
+    EuropeMap.setGameState(roomState);
+  }
+
+  function getAdjacencyMap() {
+    return {
+      'Albania': ['Greece', 'Montenegro', 'Serbia'],
+      'Austria': ['Germany', 'Switzerland', 'Italy', 'Hungary', 'Czechia', 'Slovakia'],
+      'Belgium': ['France', 'Netherlands', 'Germany'],
+      'Bosnia and Herzegovina': ['Croatia', 'Serbia'],
+      'Bulgaria': ['Romania', 'Serbia', 'Greece', 'Turkey'],
+      'Belarus': ['Poland', 'Lithuania', 'Latvia', 'Russia', 'Ukraine'],
+      'Croatia': ['Hungary', 'Serbia', 'Bosnia and Herzegovina'],
+      'Czechia': ['Germany', 'Poland', 'Slovakia', 'Austria'],
+      'Denmark': ['Germany', 'Sweden', 'Norway'],
+      'Estonia': ['Latvia', 'Finland', 'Russia'],
+      'Finland': ['Norway', 'Sweden', 'Russia', 'Estonia'],
+      'France': ['Spain', 'Belgium', 'Germany', 'Switzerland', 'Italy', 'United Kingdom'],
+      'Germany': ['France', 'Belgium', 'Netherlands', 'Switzerland', 'Austria', 'Czechia', 'Poland', 'Denmark'],
+      'Greece': ['Albania', 'Bulgaria', 'Turkey'],
+      'Hungary': ['Austria', 'Slovakia', 'Ukraine', 'Romania', 'Serbia', 'Croatia'],
+      'Iceland': ['United Kingdom', 'Norway'],
+      'Ireland': ['United Kingdom'],
+      'Italy': ['France', 'Switzerland', 'Austria'],
+      'Latvia': ['Estonia', 'Lithuania', 'Russia', 'Belarus'],
+      'Lithuania': ['Latvia', 'Poland', 'Belarus', 'Russia'],
+      'Norway': ['Sweden', 'Finland', 'Russia', 'Denmark', 'Iceland'],
+      'Poland': ['Germany', 'Czechia', 'Slovakia', 'Ukraine', 'Belarus', 'Lithuania', 'Russia'],
+      'Portugal': ['Spain'],
+      'Romania': ['Hungary', 'Ukraine', 'Bulgaria', 'Serbia'],
+      'Russia': ['Norway', 'Finland', 'Estonia', 'Latvia', 'Lithuania', 'Poland', 'Belarus', 'Ukraine'],
+      'Serbia': ['Hungary', 'Romania', 'Bulgaria', 'Albania', 'Bosnia and Herzegovina', 'Croatia'],
+      'Slovakia': ['Czechia', 'Poland', 'Ukraine', 'Hungary', 'Austria'],
+      'Spain': ['Portugal', 'France'],
+      'Sweden': ['Norway', 'Finland', 'Denmark'],
+      'Switzerland': ['France', 'Germany', 'Austria', 'Italy'],
+      'Turkey': ['Bulgaria', 'Greece'],
+      'Ukraine': ['Poland', 'Slovakia', 'Hungary', 'Romania', 'Belarus', 'Russia'],
+      'United Kingdom': ['Ireland', 'France', 'Netherlands', 'Iceland', 'Norway'],
+    };
+  }
+
+  // ─── Tactical Map Interaction ─────────────────────────────────────────
+  function handleCountryClick(country) {
+    if (!roomState) return;
+    const isMyTurn = isBotGame
+      ? roomState.currentPlayer === 'me'
+      : roomState.currentPlayer === socket?.id;
+
+    if (!isMyTurn) return;
+
+    const myId = isBotGame ? 'me' : socket?.id;
+    const territory = roomState.territories[country];
+    if (!territory) return;
+
+    // 1. REINFORCE PHASE
+    if (roomState.phase === 'reinforce') {
+      if (territory.owner === myId && roomState.reinforcementsLeft > 0) {
+        territory.armies++;
+        roomState.reinforcementsLeft--;
+        if (!isBotGame && socket) {
+          socket.emit('place-reinforcement', { country });
+        }
+        updateTacticalHUD();
+        EuropeMap.setSelected(country);
+        setTimeout(() => EuropeMap.clearSelection(), 300);
+      }
+    }
+    // 2. ATTACK PHASE
+    else if (roomState.phase === 'attack') {
+      if (!selectedFrom) {
+        if (territory.owner === myId && territory.armies >= 2) {
+          selectedFrom = country;
+          EuropeMap.setSelected(country);
+        }
+      } else {
+        if (country === selectedFrom) {
+          selectedFrom = null;
+          EuropeMap.clearSelection();
+        } else if (territory.owner === myId) {
+          selectedFrom = country;
+          EuropeMap.setSelected(country);
+        } else {
+          // Check adjacency
+          const adj = roomState.adjacency[selectedFrom] || [];
+          if (adj.includes(country)) {
+            EuropeMap.setTarget(country);
+            executeAttack(selectedFrom, country);
+          }
+        }
+      }
+    }
+    // 3. FORTIFY PHASE
+    else if (roomState.phase === 'fortify') {
+      if (!selectedFrom) {
+        if (territory.owner === myId && territory.armies >= 2) {
+          selectedFrom = country;
+          EuropeMap.setSelected(country);
+        }
+      } else {
+        if (country === selectedFrom) {
+          selectedFrom = null;
+          EuropeMap.clearSelection();
+        } else if (territory.owner === myId) {
+          const adj = roomState.adjacency[selectedFrom] || [];
+          if (adj.includes(country)) {
+            const fromT = roomState.territories[selectedFrom];
+            const moving = Math.floor(fromT.armies / 2);
+            fromT.armies -= moving;
+            territory.armies += moving;
+            selectedFrom = null;
+            EuropeMap.clearSelection();
+            advancePhase();
+          }
+        }
+      }
+    }
+  }
+
+  function executeAttack(fromCountry, toCountry) {
+    if (!isBotGame && socket?.connected) {
+      socket.emit('attack', { from: fromCountry, to: toCountry });
+      return;
+    }
+
+    // Local Combat Resolution
+    const fromT = roomState.territories[fromCountry];
+    const toT = roomState.territories[toCountry];
+
+    const atkDice = rollDice(Math.min(3, fromT.armies - 1));
+    const defDice = rollDice(Math.min(2, toT.armies));
+
+    let atkLoss = 0;
+    let defLoss = 0;
+    const comparisons = Math.min(atkDice.length, defDice.length);
+
+    for (let i = 0; i < comparisons; i++) {
+      if (atkDice[i] > defDice[i]) {
+        defLoss++;
+      } else {
+        atkLoss++;
+      }
+    }
+
+    fromT.armies -= atkLoss;
+    toT.armies -= defLoss;
+
+    let conquered = false;
+    if (toT.armies <= 0) {
+      conquered = true;
+      const move = Math.max(1, fromT.armies - 1);
+      toT.owner = fromT.owner;
+      toT.armies = move;
+      fromT.armies -= move;
+    }
+
+    const result = {
+      from: fromCountry,
+      to: toCountry,
+      atkDice,
+      defDice,
+      atkLoss,
+      defLoss,
+      conquered,
+      attackerName: roomState.players[fromT.owner]?.name || 'Attacker',
+      defenderName: roomState.players[toT.owner]?.name || 'Defender',
+    };
+
+    triggerCombatClashModal(result);
+    appendBattleIntel(result);
+    updateTacticalHUD();
+
+    // Check Victory
+    const owners = new Set(Object.values(roomState.territories).map(t => t.owner));
+    if (owners.size === 1) {
+      triggerVictoryBanner(result.attackerName, fromT.owner === 'me');
+    }
+  }
+
+  function rollDice(count) {
+    return Array.from({ length: count }, () => Math.floor(Math.random() * 6) + 1).sort((a, b) => b - a);
+  }
+
+  function advancePhase() {
+    if (!roomState) return;
+
+    if (!isBotGame && socket?.connected) {
+      socket.emit('end-phase');
+      selectedFrom = null;
+      EuropeMap.clearSelection();
+      return;
+    }
+
+    selectedFrom = null;
+    EuropeMap.clearSelection();
+
+    if (roomState.phase === 'reinforce') {
+      roomState.phase = 'attack';
+    } else if (roomState.phase === 'attack') {
+      roomState.phase = 'fortify';
+    } else if (roomState.phase === 'fortify') {
+      // Advance to next commander
+      roomState.currentTurnIndex = (roomState.currentTurnIndex + 1) % roomState.turnOrder.length;
+      roomState.currentPlayer = roomState.turnOrder[roomState.currentTurnIndex];
+      roomState.phase = 'reinforce';
+      roomState.reinforcementsLeft = Math.max(3, Math.floor(
+        Object.values(roomState.territories).filter(t => t.owner === roomState.currentPlayer).length / 3
+      ));
+
+      // If Next is Bot, trigger Bot Turn
+      if (roomState.players[roomState.currentPlayer]?.isBot) {
+        setTimeout(runBotTurn, 1000);
+      }
+    }
+    updateTacticalHUD();
+  }
+
+  function runBotTurn() {
+    if (!roomState || !roomState.players[roomState.currentPlayer]?.isBot) return;
+
+    const botId = roomState.currentPlayer;
+    // 1. Bot Reinforce
+    const botCountries = Object.entries(roomState.territories)
+      .filter(([, t]) => t.owner === botId)
+      .map(([name]) => name);
+
+    if (botCountries.length > 0) {
+      const target = botCountries[Math.floor(Math.random() * botCountries.length)];
+      roomState.territories[target].armies += roomState.reinforcementsLeft;
+      roomState.reinforcementsLeft = 0;
+    }
+
+    // 2. Bot Attack
+    for (const c of botCountries) {
+      const armies = roomState.territories[c].armies;
+      if (armies >= 3) {
+        const neighbors = roomState.adjacency[c] || [];
+        const enemyNeighbors = neighbors.filter(n => roomState.territories[n]?.owner !== botId);
+        if (enemyNeighbors.length > 0) {
+          const target = enemyNeighbors[0];
+          executeAttack(c, target);
+          break;
+        }
+      }
+    }
+
+    setTimeout(advancePhase, 1200);
+  }
+
+  // ─── HUD & Battle Intel ──────────────────────────────────────────────
+  function updateTacticalHUD() {
+    if (!roomState) return;
+
+    const currentP = roomState.players[roomState.currentPlayer];
+    const nameEl = document.getElementById('hud-commander-name');
+    if (nameEl && currentP) {
+      nameEl.textContent = currentP.name;
+      nameEl.style.color = FACTION_COLORS[currentP.colorIndex % FACTION_COLORS.length];
+    }
+
+    const phaseEl = document.getElementById('hud-turn-phase');
+    if (phaseEl) {
+      phaseEl.textContent = roomState.phase.toUpperCase();
+      phaseEl.className = 'hud-phase-pill ' + roomState.phase;
+    }
+
+    const isMyTurn = isBotGame
+      ? roomState.currentPlayer === 'me'
+      : roomState.currentPlayer === socket?.id;
+
+    const rfBox = document.getElementById('reinforce-hud-box');
+    const rfCount = document.getElementById('hud-reinforce-count');
+    if (rfBox && rfCount) {
+      if (roomState.phase === 'reinforce' && isMyTurn) {
+        rfBox.style.display = 'flex';
+        rfCount.textContent = roomState.reinforcementsLeft;
+      } else {
+        rfBox.style.display = 'none';
+      }
+    }
+
+    const endBtn = document.getElementById('btn-end-phase');
+    if (endBtn) {
+      endBtn.style.display = isMyTurn ? 'inline-flex' : 'none';
+      endBtn.textContent = roomState.phase === 'reinforce' ? 'ATTACK PHASE ❯' :
+                           roomState.phase === 'attack' ? 'FORTIFY PHASE ❯' : 'END TURN ❯';
+    }
+
+    renderFactionsIntel();
+  }
+
+  function renderFactionsIntel() {
+    const list = document.getElementById('intel-factions-list');
+    if (!list || !roomState) return;
+
+    const territoryCounts = {};
     Object.values(roomState.territories).forEach(t => {
       if (t.owner) {
         territoryCounts[t.owner] = (territoryCounts[t.owner] || 0) + 1;
@@ -205,275 +527,152 @@ const Game = (() => {
     list.innerHTML = roomState.turnOrder.map(pid => {
       const p = roomState.players[pid];
       if (!p) return '';
+      const count = territoryCounts[pid] || 0;
       const isCurrent = pid === roomState.currentPlayer;
-      const isAlive = p.alive !== false && (territoryCounts[pid] || 0) > 0;
+      const color = FACTION_COLORS[p.colorIndex % FACTION_COLORS.length];
+
       return `
-        <div class="game-player-item ${isCurrent ? 'active-turn' : ''} ${!isAlive ? 'eliminated' : ''}">
-          <div class="player-color-dot" style="color: ${PLAYER_COLORS_CSS[p.colorIndex]}; background: ${PLAYER_COLORS_CSS[p.colorIndex]};"></div>
+        <div class="faction-item ${isCurrent ? 'active' : ''} ${count === 0 ? 'eliminated' : ''}">
+          <span class="faction-dot" style="background: ${color}; box-shadow: 0 0 8px ${color}"></span>
           <span>${escapeHtml(p.name)}</span>
-          <span class="player-territory-count">${territoryCounts[pid] || 0} 🏴</span>
+          <span class="faction-count">${count} 🏴</span>
         </div>
       `;
     }).join('');
   }
 
-  // ─── Map Interaction ─────────────────────────────────────────────────
-  function handleCountryClick(country) {
-    if (!roomState || roomState.state !== 'playing') return;
-    if (roomState.currentPlayer !== socket.id) return;
+  function handleCountryHover(country, sx, sy) {
+    const tooltip = document.getElementById('tactical-country-tooltip');
+    if (!tooltip) return;
 
-    const territory = roomState.territories[country];
-    if (!territory) return;
-
-    if (roomState.phase === 'reinforce') {
-      // Place reinforcement on own territory
-      if (territory.owner === socket.id && roomState.reinforcementsLeft > 0) {
-        socket.emit('place-reinforcement', { country });
-        EuropeMap.setSelected(country);
-        setTimeout(() => EuropeMap.clearSelection(), 300);
-      }
-    } else if (roomState.phase === 'attack') {
-      if (!selectedFrom) {
-        // Select source (must be own territory with 2+ armies)
-        if (territory.owner === socket.id && territory.armies >= 2) {
-          selectedFrom = country;
-          EuropeMap.setSelected(country);
-        }
-      } else {
-        if (country === selectedFrom) {
-          // Deselect
-          selectedFrom = null;
-          EuropeMap.clearSelection();
-        } else if (territory.owner === socket.id) {
-          // Switch selection to another own territory
-          selectedFrom = country;
-          EuropeMap.setSelected(country);
-          EuropeMap.setTarget(null);
-        } else {
-          // Attack! Check adjacency
-          const adj = roomState.adjacency[selectedFrom] || [];
-          if (adj.includes(country)) {
-            EuropeMap.setTarget(country);
-            socket.emit('attack', { from: selectedFrom, to: country });
-            // Keep selection for continuous attacks
-          }
-        }
-      }
-    } else if (roomState.phase === 'fortify') {
-      if (!selectedFrom) {
-        if (territory.owner === socket.id && territory.armies >= 2) {
-          selectedFrom = country;
-          EuropeMap.setSelected(country);
-        }
-      } else {
-        if (country === selectedFrom) {
-          selectedFrom = null;
-          EuropeMap.clearSelection();
-        } else if (territory.owner === socket.id) {
-          // Fortify
-          const adj = roomState.adjacency[selectedFrom] || [];
-          if (adj.includes(country)) {
-            const fromT = roomState.territories[selectedFrom];
-            const armies = Math.max(1, Math.floor((fromT.armies - 1) / 2));
-            socket.emit('fortify', { from: selectedFrom, to: country, armies });
-            selectedFrom = null;
-            EuropeMap.clearSelection();
-          } else {
-            // Switch selection
-            if (territory.armies >= 2) {
-              selectedFrom = country;
-              EuropeMap.setSelected(country);
-            }
-          }
-        }
-      }
-    }
-  }
-
-  function handleCountryHover(country, mx, my) {
-    const tooltip = document.getElementById('country-tooltip');
-
-    if (!country) {
+    if (!country || !roomState) {
       tooltip.style.display = 'none';
       return;
     }
 
-    const territory = roomState?.territories?.[country];
-    const owner = territory?.owner;
-    const ownerPlayer = owner ? roomState.players[owner] : null;
+    const territory = roomState.territories[country];
+    const ownerPlayer = territory ? roomState.players[territory.owner] : null;
 
-    document.getElementById('tooltip-name').textContent = country;
-    document.getElementById('tooltip-owner').textContent = ownerPlayer
-      ? `Owner: ${ownerPlayer.name}`
-      : 'Neutral';
-    document.getElementById('tooltip-owner').style.color = ownerPlayer
-      ? PLAYER_COLORS_CSS[ownerPlayer.colorIndex]
-      : '#8892a4';
-    document.getElementById('tooltip-armies').textContent = territory
-      ? `⚔️ ${territory.armies} armies`
-      : '';
+    document.getElementById('tip-country-name').textContent = country.toUpperCase();
+    document.getElementById('tip-country-owner').textContent = ownerPlayer ? ownerPlayer.name : 'Neutral Forces';
+    document.getElementById('tip-country-armies').textContent = `${territory ? territory.armies : 0} Armies`;
 
     tooltip.style.display = 'block';
-    tooltip.style.left = (mx + 16) + 'px';
-    tooltip.style.top = (my - 10) + 'px';
+    tooltip.style.left = (sx + 18) + 'px';
+    tooltip.style.top = (sy - 15) + 'px';
 
-    // Keep tooltip in viewport
     const rect = tooltip.getBoundingClientRect();
     if (rect.right > window.innerWidth) {
-      tooltip.style.left = (mx - rect.width - 16) + 'px';
-    }
-    if (rect.bottom > window.innerHeight) {
-      tooltip.style.top = (my - rect.height - 10) + 'px';
+      tooltip.style.left = (sx - rect.width - 18) + 'px';
     }
   }
 
-  // ─── Combat Animation ───────────────────────────────────────────────
-  function showCombatAnimation(result) {
-    const overlay = document.getElementById('combat-overlay');
-    document.getElementById('combat-atk-name').textContent = result.from;
-    document.getElementById('combat-def-name').textContent = result.to;
+  // ─── Combat & Victory Overlays ───────────────────────────────────────
+  function triggerCombatClashModal(result) {
+    const modal = document.getElementById('tactical-combat-modal');
+    if (!modal) return;
 
-    // Dice
-    const atkDiceEl = document.getElementById('combat-atk-dice');
-    const defDiceEl = document.getElementById('combat-def-dice');
-    atkDiceEl.innerHTML = result.atkDice.map(d => `<div class="dice atk">${d}</div>`).join('');
-    defDiceEl.innerHTML = result.defDice.map(d => `<div class="dice def">${d}</div>`).join('');
+    document.getElementById('clash-atk-name').textContent = result.from.toUpperCase();
+    document.getElementById('clash-def-name').textContent = result.to.toUpperCase();
 
-    // Result text
-    const resultText = document.getElementById('combat-result-text');
+    const atkDiceBox = document.getElementById('clash-atk-dice');
+    const defDiceBox = document.getElementById('clash-def-dice');
+
+    atkDiceBox.innerHTML = result.atkDice.map(d => `<div class="tactical-die atk">🎲${d}</div>`).join('');
+    defDiceBox.innerHTML = result.defDice.map(d => `<div class="tactical-die def">🎲${d}</div>`).join('');
+
+    const outcome = document.getElementById('clash-outcome-text');
     if (result.conquered) {
-      resultText.textContent = `🏴 ${result.from} CONQUERED!`;
-      resultText.style.color = '#ffd740';
+      outcome.textContent = `🏴 ${result.to.toUpperCase()} CONQUERED!`;
+      outcome.style.color = '#ffd700';
     } else {
-      const parts = [];
-      if (result.atkLoss > 0) parts.push(`Attacker lost ${result.atkLoss}`);
-      if (result.defLoss > 0) parts.push(`Defender lost ${result.defLoss}`);
-      resultText.textContent = parts.join(' • ');
-      resultText.style.color = '#8892a4';
+      outcome.textContent = `CASUALTIES: ATK -${result.atkLoss} | DEF -${result.defLoss}`;
+      outcome.style.color = '#94a3b8';
     }
 
-    overlay.style.display = 'flex';
-
-    setTimeout(() => {
-      overlay.style.display = 'none';
-    }, 2200);
+    modal.style.display = 'flex';
+    setTimeout(() => { modal.style.display = 'none'; }, 2200);
   }
 
-  function addCombatLogEntry(result) {
-    const log = document.getElementById('combat-log');
-    const entry = document.createElement('div');
-    entry.className = 'combat-log-entry' + (result.conquered ? ' conquest' : '');
+  function appendBattleIntel(result) {
+    const log = document.getElementById('intel-battle-log');
+    if (!log) return;
 
-    const atkDiceStr = result.atkDice.map(d => `🎲${d}`).join(' ');
-    const defDiceStr = result.defDice.map(d => `🎲${d}`).join(' ');
+    const entry = document.createElement('div');
+    entry.className = `intel-msg ${result.conquered ? 'conquest' : 'clash'}`;
+    const time = new Date().toTimeString().slice(0, 5);
 
     entry.innerHTML = `
-      <strong>${escapeHtml(result.from)}</strong> → <strong>${escapeHtml(result.to)}</strong><br/>
-      ${atkDiceStr} vs ${defDiceStr}<br/>
+      <span class="time">[${time}]</span> <strong>${escapeHtml(result.from)}</strong> attacked <strong>${escapeHtml(result.to)}</strong><br/>
       ${result.conquered
-        ? '<span style="color:#ffd740;">🏴 Territory Conquered!</span>'
-        : `<span style="color:#8892a4;">ATK -${result.atkLoss} / DEF -${result.defLoss}</span>`
+        ? '<span style="color:#10f070; font-weight:800;">★ Territory Subjugated!</span>'
+        : `<span>Losses: Attacker -${result.atkLoss} / Defender -${result.defLoss}</span>`
       }
     `;
 
     log.insertBefore(entry, log.firstChild);
+  }
 
-    // Keep only last 50 entries
-    while (log.children.length > 50) {
-      log.removeChild(log.lastChild);
+  function appendCommsMessage(msg) {
+    const log = document.getElementById('intel-battle-log');
+    if (!log) return;
+
+    const entry = document.createElement('div');
+    entry.className = 'intel-msg';
+    entry.innerHTML = `<strong style="color:${FACTION_COLORS[msg.colorIndex % FACTION_COLORS.length]}">${escapeHtml(msg.playerName)}:</strong> ${escapeHtml(msg.message)}`;
+    log.insertBefore(entry, log.firstChild);
+  }
+
+  function sendComms(text) {
+    if (!text || !text.trim()) return;
+    if (socket?.connected) {
+      socket.emit('send-chat', { message: text.trim() });
+    } else {
+      appendCommsMessage({
+        playerName,
+        colorIndex: 0,
+        message: text.trim(),
+      });
     }
   }
 
-  // ─── Chat ────────────────────────────────────────────────────────────
-  function sendChat(message) {
-    if (!message.trim()) return;
-    socket.emit('send-chat', { message: message.trim() });
-  }
+  function triggerVictoryBanner(winnerName, isMe) {
+    const modal = document.getElementById('tactical-victory-modal');
+    if (!modal) return;
 
-  function addChatMessage(msg) {
-    const container = document.getElementById('chat-messages');
-    const el = document.createElement('div');
-    el.className = 'chat-msg';
-    el.innerHTML = `<span class="chat-msg-name" style="color:${PLAYER_COLORS_CSS[msg.colorIndex]}">${escapeHtml(msg.playerName)}:</span>${escapeHtml(msg.message)}`;
-    container.appendChild(el);
-    container.scrollTop = container.scrollHeight;
-
-    // Show badge if collapsed
-    const panel = document.getElementById('chat-panel');
-    if (panel.classList.contains('collapsed')) {
-      document.getElementById('chat-badge').style.display = 'flex';
-    }
-  }
-
-  // ─── Victory ─────────────────────────────────────────────────────────
-  function showVictory(winnerName, isMe) {
-    const overlay = document.getElementById('victory-overlay');
-    const message = document.getElementById('victory-message');
-    message.textContent = isMe
-      ? 'You have conquered all of Europe!'
+    document.getElementById('victory-winner-announcement').textContent = isMe
+      ? 'You have subjugated all rival European powers and forged an empire!'
       : `${winnerName} has conquered all of Europe!`;
-    overlay.style.display = 'flex';
+
+    modal.style.display = 'flex';
   }
 
-  // ─── Utils ───────────────────────────────────────────────────────────
   function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+    const d = document.createElement('div');
+    d.textContent = str || '';
+    return d.innerHTML;
   }
 
-  function endPhase() {
-    socket.emit('end-phase');
-    selectedFrom = null;
-    EuropeMap.clearSelection();
+  function launchOnlineConquest() {
+    if (socket && socket.connected) {
+      socket.emit('start-game');
+    } else {
+      startLocalCampaign('Operation Overlord', 4, playerName);
+    }
   }
-
-  function startGameRequest() {
-    socket.emit('start-game');
-  }
-
-  function leaveRoom() {
-    if (socket) socket.disconnect();
-    socket = null;
-    connect();
-    roomState = null;
-    showScreen('lobby-screen');
-    socket.emit('get-rooms', (rooms) => {
-      renderRoomsList(rooms);
-    });
-  }
-
-  function backToLobby() {
-    if (socket) socket.disconnect();
-    socket = null;
-    connect();
-    roomState = null;
-    document.getElementById('victory-overlay').style.display = 'none';
-    showScreen('lobby-screen');
-    socket.emit('get-rooms', (rooms) => {
-      renderRoomsList(rooms);
-    });
-  }
-
-  function getSocket() { return socket; }
-  function getPlayerName() { return playerName; }
-  function getRoomState() { return roomState; }
 
   return {
     connect,
-    enterLobby,
-    createRoom,
-    joinRoom,
-    startGameRequest,
-    leaveRoom,
-    backToLobby,
+    showScreen,
+    openModal,
+    closeModal,
+    createGame,
+    joinGame,
+    launchOnlineConquest,
     handleCountryClick,
     handleCountryHover,
-    endPhase,
-    sendChat,
-    showScreen,
-    getSocket,
-    getPlayerName,
-    getRoomState,
+    advancePhase,
+    sendComms,
+    getRoomState: () => roomState,
   };
 })();

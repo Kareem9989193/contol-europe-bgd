@@ -1,133 +1,138 @@
 /**
- * app.js — Entry Point
- * Initializes map, game, and wires up all UI events
+ * app.js — Clean & Direct Grand-Strategy Controller
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-  // ─── Connect to Server ─────────────────────────────────────────────
+  // 1. Initialize Network
   Game.connect();
 
-  // ─── Login Screen ──────────────────────────────────────────────────
-  const nameInput = document.getElementById('player-name-input');
-  const enterBtn = document.getElementById('enter-lobby-btn');
-
-  function handleLogin() {
-    const name = nameInput.value.trim();
-    if (name.length < 1) {
-      nameInput.style.borderColor = '#ff4081';
-      nameInput.focus();
-      return;
-    }
-    nameInput.style.borderColor = '';
-    Game.enterLobby(name);
+  // 2. Initialize Tactical Map
+  const canvas = document.getElementById('game-canvas');
+  if (canvas) {
+    EuropeMap.init(canvas);
   }
 
-  enterBtn.addEventListener('click', handleLogin);
-  nameInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') handleLogin();
+  EuropeMap.onHover((country, sx, sy) => {
+    Game.handleCountryHover(country, sx, sy);
   });
 
-  // Focus input on load
-  setTimeout(() => nameInput.focus(), 500);
-
-  // ─── Lobby Screen ──────────────────────────────────────────────────
-  const createRoomBtn = document.getElementById('create-room-btn');
-  const roomNameInput = document.getElementById('room-name-input');
-  const maxPlayersInput = document.getElementById('max-players-input');
-
-  createRoomBtn.addEventListener('click', () => {
-    const roomName = roomNameInput.value.trim() || `${Game.getPlayerName()}'s Room`;
-    const maxPlayers = parseInt(maxPlayersInput.value, 10);
-    Game.createRoom(roomName, maxPlayers);
-  });
-
-  roomNameInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') createRoomBtn.click();
-  });
-
-  // ─── Waiting Room ─────────────────────────────────────────────────
-  document.getElementById('start-game-btn').addEventListener('click', () => {
-    Game.startGameRequest();
-  });
-
-  document.getElementById('leave-room-btn').addEventListener('click', () => {
-    Game.leaveRoom();
-  });
-
-  // ─── Game Screen ───────────────────────────────────────────────────
-  const canvas = document.getElementById('game-canvas');
-
-  // Init map when game screen is shown
-  const observer = new MutationObserver(() => {
-    const gameScreen = document.getElementById('game-screen');
-    if (gameScreen.classList.contains('active')) {
-      EuropeMap.init(canvas).then(() => {
-        const state = Game.getRoomState();
-        if (state) EuropeMap.setGameState(state);
-      });
-      observer.disconnect();
-    }
-  });
-  observer.observe(document.getElementById('game-screen'), {
-    attributes: true,
-    attributeFilter: ['class'],
-  });
-
-  // Map callbacks
-  EuropeMap.onHover((country, mx, my) => {
-    Game.handleCountryHover(country, mx, my);
-  });
   EuropeMap.onClick((country) => {
     Game.handleCountryClick(country);
   });
 
-  // Phase controls
-  document.getElementById('end-phase-btn').addEventListener('click', () => {
-    Game.endPhase();
+  // ─── Main Menu Hotspots (Directly on Image 1) ─────────────────────────
+  const btnCreateGame = document.getElementById('btn-create-game');
+  const btnJoinGame = document.getElementById('btn-join-game');
+
+  btnCreateGame?.addEventListener('click', () => {
+    Game.openModal('modal-create-game');
   });
 
-  // Victory
-  document.getElementById('back-to-lobby-btn').addEventListener('click', () => {
-    Game.backToLobby();
+  btnJoinGame?.addEventListener('click', () => {
+    Game.openModal('modal-join-game');
   });
 
-  // ─── Chat ──────────────────────────────────────────────────────────
-  const chatToggle = document.getElementById('chat-toggle');
-  const chatPanel = document.getElementById('chat-panel');
-  const chatInput = document.getElementById('chat-input');
-  const chatSendBtn = document.getElementById('chat-send-btn');
+  // Close modals
+  document.querySelectorAll('.modal-close-x').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const modalId = btn.getAttribute('data-close');
+      if (modalId) Game.closeModal(modalId);
+    });
+  });
 
-  chatToggle.addEventListener('click', () => {
-    chatPanel.classList.toggle('collapsed');
-    if (!chatPanel.classList.contains('collapsed')) {
-      document.getElementById('chat-badge').style.display = 'none';
-      chatInput.focus();
+  // ─── Create Game Form ─────────────────────────────────────────────────
+  const btnSubmitCreate = document.getElementById('btn-submit-create');
+  btnSubmitCreate?.addEventListener('click', () => {
+    const commanderName = document.getElementById('create-player-name')?.value.trim() || 'Commander';
+    const roomName = document.getElementById('create-room-name')?.value.trim() || 'Europe Campaign';
+    const maxPlayers = parseInt(document.getElementById('create-room-max')?.value, 10) || 4;
+    const mode = document.querySelector('input[name="game-mode"]:checked')?.value || 'online';
+
+    Game.createGame(roomName, maxPlayers, commanderName, mode);
+  });
+
+  // Mode Chips
+  document.querySelectorAll('.clean-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.clean-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+    });
+  });
+
+  // ─── Direct Code Join ─────────────────────────────────────────────────
+  const btnJoinCodeDirect = document.getElementById('btn-join-code-direct');
+  btnJoinCodeDirect?.addEventListener('click', () => {
+    const code = document.getElementById('join-room-code-input')?.value.trim();
+    const commanderName = document.getElementById('join-player-name')?.value.trim() || 'Commander';
+    if (!code) {
+      alert('Please enter a room code.');
+      return;
+    }
+    Game.joinGame(code, commanderName);
+  });
+
+  // ─── Waiting Room ─────────────────────────────────────────────────────
+  const btnLaunchGame = document.getElementById('btn-launch-game');
+  btnLaunchGame?.addEventListener('click', () => {
+    Game.launchOnlineConquest();
+  });
+
+  const btnLeaveLobby = document.getElementById('btn-leave-lobby');
+  btnLeaveLobby?.addEventListener('click', () => {
+    Game.closeModal('modal-waiting-room');
+    Game.showScreen('main-menu-screen');
+  });
+
+  const btnCopyLink = document.getElementById('btn-copy-link');
+  btnCopyLink?.addEventListener('click', () => {
+    const input = document.getElementById('room-share-link');
+    if (input) {
+      input.select();
+      navigator.clipboard?.writeText(input.value);
+      btnCopyLink.textContent = 'COPIED! ✓';
+      setTimeout(() => { btnCopyLink.textContent = 'COPY LINK'; }, 2000);
     }
   });
 
-  chatSendBtn.addEventListener('click', () => {
-    Game.sendChat(chatInput.value);
-    chatInput.value = '';
-    chatInput.focus();
+  // ─── Tactical Gameplay HUD ────────────────────────────────────────────
+  const btnEndPhase = document.getElementById('btn-end-phase');
+  btnEndPhase?.addEventListener('click', () => {
+    Game.advancePhase();
   });
 
-  chatInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      Game.sendChat(chatInput.value);
-      chatInput.value = '';
+  const btnTacticalExit = document.getElementById('btn-tactical-exit');
+  btnTacticalExit?.addEventListener('click', () => {
+    if (confirm('Return to Main Menu?')) {
+      Game.showScreen('main-menu-screen');
     }
   });
 
-  // ─── Keyboard Shortcuts ────────────────────────────────────────────
+  const btnVictoryHQ = document.getElementById('btn-victory-hq');
+  btnVictoryHQ?.addEventListener('click', () => {
+    const victoryModal = document.getElementById('tactical-victory-modal');
+    if (victoryModal) victoryModal.style.display = 'none';
+    Game.showScreen('main-menu-screen');
+  });
+
+  // Keyboard Shortcuts
   document.addEventListener('keydown', (e) => {
-    // Space or Enter to end phase
-    if (e.key === ' ' && document.activeElement !== chatInput && document.activeElement !== nameInput && document.activeElement !== roomNameInput) {
-      e.preventDefault();
-      Game.endPhase();
-    }
-    // Escape to deselect
     if (e.key === 'Escape') {
+      Game.closeModal('modal-create-game');
+      Game.closeModal('modal-join-game');
       EuropeMap.clearSelection();
     }
+    if (e.key === ' ' && document.activeElement.tagName !== 'INPUT') {
+      e.preventDefault();
+      Game.advancePhase();
+    }
   });
+
+  // Auto-join query
+  const urlParams = new URLSearchParams(window.location.search);
+  const autoRoom = urlParams.get('room');
+  if (autoRoom) {
+    const joinInput = document.getElementById('join-room-code-input');
+    if (joinInput) joinInput.value = autoRoom;
+    Game.openModal('modal-join-game');
+  }
 });
