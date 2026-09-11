@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Control Europe — Conquer the Continent</title>
+  <meta name="description" content="Control Europe is a real-time multiplayer strategy game. Compete with friends to dominate the European continent." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=Orbitron:wght@400;500;700;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+
+  <!-- ── Login Screen ──────────────────────────────────────────────────── -->
+  <div id="login-screen" class="screen active">
+    <div class="login-bg"></div>
+    <div class="login-container">
+      <div class="logo-area">
+        <h1 class="logo-title">CONTROL<span class="accent">EUROPE</span></h1>
+        <p class="logo-subtitle">Dominate the Continent</p>
+      </div>
+      <div class="glass-card login-card">
+        <label for="player-name-input" class="input-label">Commander Name</label>
+        <input type="text" id="player-name-input" class="neon-input" placeholder="Enter your name..." maxlength="20" autocomplete="off" />
+        <button id="enter-lobby-btn" class="btn btn-primary">ENTER WAR ROOM</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Lobby Screen ──────────────────────────────────────────────────── -->
+  <div id="lobby-screen" class="screen">
+    <div class="lobby-header">
+      <h1 class="logo-title small">CONTROL<span class="accent">EUROPE</span></h1>
+      <span id="lobby-player-name" class="player-badge"></span>
+    </div>
+    <div class="lobby-content">
+      <div class="glass-card create-room-card">
+        <h2>Create New Room</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="room-name-input" class="input-label">Room Name</label>
+            <input type="text" id="room-name-input" class="neon-input" placeholder="My War Room" maxlength="30" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="max-players-input" class="input-label">Max Players</label>
+            <select id="max-players-input" class="neon-input">
+              <option value="2">2 Players</option>
+              <option value="3">3 Players</option>
+              <option value="4" selected>4 Players</option>
+              <option value="5">5 Players</option>
+              <option value="6">6 Players</option>
+            </select>
+          </div>
+        </div>
+        <button id="create-room-btn" class="btn btn-primary">CREATE ROOM</button>
+      </div>
+
+      <div class="glass-card rooms-list-card">
+        <h2>Available Rooms</h2>
+        <div id="rooms-list" class="rooms-list">
+          <p class="no-rooms">No rooms available. Create one!</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Waiting Room ──────────────────────────────────────────────────── -->
+  <div id="waiting-screen" class="screen">
+    <div class="lobby-header">
+      <h1 class="logo-title small">CONTROL<span class="accent">EUROPE</span></h1>
+      <button id="leave-room-btn" class="btn btn-outline btn-sm">← Back</button>
+    </div>
+    <div class="waiting-content">
+      <div class="glass-card waiting-card">
+        <h2 id="waiting-room-name">Room Name</h2>
+        <p class="waiting-subtitle">Waiting for players...</p>
+        <div id="waiting-players" class="waiting-players"></div>
+        <button id="start-game-btn" class="btn btn-primary btn-large" style="display:none;">
+          ⚔️ START CONQUEST
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Game Screen ───────────────────────────────────────────────────── -->
+  <div id="game-screen" class="screen">
+    <!-- Top HUD -->
+    <div id="game-hud" class="game-hud">
+      <div class="hud-left">
+        <span class="hud-title">CONTROL<span class="accent">EUROPE</span></span>
+      </div>
+      <div class="hud-center">
+        <div id="turn-info" class="turn-info">
+          <span id="current-player-name" class="current-player">—</span>
+          <span id="current-phase" class="phase-badge">REINFORCE</span>
+        </div>
+      </div>
+      <div class="hud-right">
+        <div id="reinforcements-counter" class="reinforcements-counter" style="display:none;">
+          <span class="counter-label">Reinforcements</span>
+          <span id="reinforcements-count" class="counter-value">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Phase Controls -->
+    <div id="phase-controls" class="phase-controls">
+      <button id="end-phase-btn" class="btn btn-accent">END PHASE →</button>
+    </div>
+
+    <!-- Side Panel — Players -->
+    <div id="players-panel" class="glass-panel players-panel">
+      <h3>Commanders</h3>
+      <div id="game-players-list" class="game-players-list"></div>
+    </div>
+
+    <!-- Combat Log -->
+    <div id="combat-log-panel" class="glass-panel combat-log-panel">
+      <h3>Combat Log</h3>
+      <div id="combat-log" class="combat-log"></div>
+    </div>
+
+    <!-- Chat -->
+    <div id="chat-panel" class="glass-panel chat-panel collapsed">
+      <div id="chat-toggle" class="chat-toggle">
+        <span>💬 Chat</span>
+        <span id="chat-badge" class="chat-badge" style="display:none;">!</span>
+      </div>
+      <div class="chat-body">
+        <div id="chat-messages" class="chat-messages"></div>
+        <div class="chat-input-row">
+          <input type="text" id="chat-input" class="neon-input chat-input" placeholder="Type a message..." maxlength="200" autocomplete="off" />
+          <button id="chat-send-btn" class="btn btn-sm btn-accent">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Country Info Tooltip -->
+    <div id="country-tooltip" class="country-tooltip" style="display:none;">
+      <div id="tooltip-name" class="tooltip-name"></div>
+      <div id="tooltip-owner" class="tooltip-owner"></div>
+      <div id="tooltip-armies" class="tooltip-armies"></div>
+    </div>
+
+    <!-- Victory Overlay -->
+    <div id="victory-overlay" class="victory-overlay" style="display:none;">
+      <div class="victory-content">
+        <h1 class="victory-title">🏆 VICTORY 🏆</h1>
+        <p id="victory-message" class="victory-message"></p>
+        <button id="back-to-lobby-btn" class="btn btn-primary btn-large">BACK TO LOBBY</button>
+      </div>
+    </div>
+
+    <!-- Combat Animation Overlay -->
+    <div id="combat-overlay" class="combat-overlay" style="display:none;">
+      <div class="combat-content">
+        <div class="combat-title">⚔️ BATTLE ⚔️</div>
+        <div class="combat-versus">
+          <div class="combat-side attacker">
+            <div id="combat-atk-name" class="combat-name">Attacker</div>
+            <div id="combat-atk-dice" class="dice-row"></div>
+          </div>
+          <div class="combat-vs">VS</div>
+          <div class="combat-side defender">
+            <div id="combat-def-name" class="combat-name">Defender</div>
+            <div id="combat-def-dice" class="dice-row"></div>
+          </div>
+        </div>
+        <div id="combat-result-text" class="combat-result-text"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/map.js"></script>
+  <script src="/js/game.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
