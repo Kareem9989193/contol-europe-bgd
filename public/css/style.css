@@ -57,18 +57,13 @@ html, body {
   position: relative;
   width: 100vw;
   height: 100vh;
-  max-width: 177.78vh; /* 16:9 ratio lock */
-  max-height: 56.25vw;
-  margin: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow: hidden;
 }
 
 .menu-art-bg {
   width: 100%;
   height: 100%;
-  object-fit: fill;
+  object-fit: cover;
   display: block;
 }
 
