@@ -2,51 +2,79 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Europe Conquest — Grand-Strategy</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Control Europe — Grand Strategy</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
 
   <!-- ═══════════════════════════════════════════════════════════════════════════
-       SCREEN 1: MAIN MENU (Pure background image + interactive hotspots)
+       SCREEN 1: MAIN MENU (Clean background + seamless hotspot buttons)
   ════════════════════════════════════════════════════════════════════════════ -->
   <div id="main-menu-screen" class="screen active">
     <div class="menu-stage-wrapper">
-      <img src="/assets/menu_bg.jpg" class="menu-art-bg" alt="Europe Conquest Menu" />
-
-      <!-- Interactive Click Hotspots over the image buttons -->
+      <img src="/assets/menu_bg.jpg" class="menu-art-bg" alt="Control Europe Menu" />
       <button id="btn-create-game" class="art-hotspot hotspot-create" title="Create Game"></button>
       <button id="btn-join-game" class="art-hotspot hotspot-join" title="Join Game"></button>
     </div>
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════════════════
-       SCREEN 2: TACTICAL GAMEPLAY SCREEN (Europe Map + Live Warfare)
+       SCREEN 2: GRAND STRATEGY TACTICAL THEATER
   ════════════════════════════════════════════════════════════════════════════ -->
   <div id="game-screen" class="screen">
-    <!-- Top HUD Bar -->
+    <!-- Top Grand Strategy Economy HUD -->
     <header class="tactical-top-hud">
-      <div class="hud-left">
-        <button id="btn-tactical-exit" class="btn-hud-hq">↩ HQ</button>
-        <span class="hud-title">EUROPE CONQUEST</span>
-      </div>
-
-      <div class="hud-center">
-        <span class="hud-label">TURN:</span>
-        <span id="hud-commander-name" class="hud-player-turn">Commander</span>
-        <span id="hud-turn-phase" class="hud-phase-pill">REINFORCE</span>
-      </div>
-
-      <div class="hud-right">
-        <div id="reinforce-hud-box" class="reinforce-box" style="display:none;">
-          <span>TROOPS:</span>
-          <strong id="hud-reinforce-count">0</strong>
+      <div class="hud-section hud-commander-card">
+        <button id="btn-tactical-exit" class="btn-hud-round" title="HQ Menu">↩</button>
+        <div class="nation-badge-box">
+          <span id="hud-nation-flag" class="hud-flag">🌍</span>
+          <div class="nation-text">
+            <span id="hud-player-name" class="hud-name">Commander</span>
+            <strong id="hud-player-country" class="hud-country">Select Nation</strong>
+          </div>
         </div>
-        <button id="btn-end-phase" class="btn-hud-next">NEXT PHASE ❯</button>
+      </div>
+
+      <!-- Live Treasury & Manpower Tickers -->
+      <div class="hud-section hud-economy-metrics">
+        <div class="metric-pill gold" title="Treasury & Income">
+          <span class="icon">💰</span>
+          <div class="metric-data">
+            <span id="hud-money-val" class="value">$250</span>
+            <small id="hud-income-rate" class="rate">+$12/tick</small>
+          </div>
+        </div>
+
+        <div class="metric-pill cyan" title="Manpower Pool & Mobilization">
+          <span class="icon">👥</span>
+          <div class="metric-data">
+            <span id="hud-manpower-val" class="value">150</span>
+            <small id="hud-manpower-rate" class="rate">+10/tick</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Action Navigation Bar -->
+      <div class="hud-section hud-action-bar">
+        <button id="btn-open-tech" class="btn-hud-action" title="Technology Tree">
+          <span class="act-icon">🧪</span>
+          <span class="act-text">Tech</span>
+        </button>
+        <button id="btn-open-diplo" class="btn-hud-action" title="Diplomacy & Alliances">
+          <span class="act-icon">🤝</span>
+          <span class="act-text">Diplo</span>
+        </button>
+        <button id="btn-open-formables" class="btn-hud-action" title="Formable Empires">
+          <span class="act-icon">👑</span>
+          <span class="act-text">Empires</span>
+        </button>
+        <button id="btn-recenter-map" class="btn-hud-action icon-only" title="Recenter View">
+          <span class="act-icon">🎯</span>
+        </button>
       </div>
     </header>
 
@@ -55,37 +83,208 @@
       <canvas id="game-canvas"></canvas>
     </div>
 
-    <!-- Live Factions Panel -->
-    <div class="factions-hud-panel">
-      <div class="factions-header">COMMANDERS</div>
+    <!-- Active Commanders Factions Bar (Collapsible) -->
+    <div class="factions-hud-panel" id="factions-panel">
+      <div class="factions-header" id="factions-toggle">
+        <span>COMMANDERS (<span id="commanders-count">1</span>)</span>
+        <button class="toggle-arrow">▾</button>
+      </div>
       <div id="intel-factions-list" class="factions-items"></div>
     </div>
 
-    <!-- Battle Log -->
-    <div class="battle-log-hud">
-      <div class="log-header">BATTLE LOG</div>
+    <!-- Battle Log Floating Drawer -->
+    <div class="battle-log-hud" id="battle-log-panel">
+      <div class="log-header">WAR INTEL</div>
       <div id="intel-battle-log" class="log-items"></div>
     </div>
 
-    <!-- Floating Country Tooltip -->
+    <!-- Floating Hover Tooltip -->
     <div id="tactical-country-tooltip" class="tactical-tooltip" style="display:none;">
-      <div id="tip-country-name" class="tip-country-name">GERMANY</div>
+      <div id="tip-country-name" class="tip-country-name">PARIS</div>
       <div class="tip-detail">
-        <span>Owner:</span>
-        <strong id="tip-country-owner">Neutral</strong>
+        <span>Sovereign:</span>
+        <strong id="tip-country-owner">France</strong>
       </div>
       <div class="tip-detail">
         <span>Garrison:</span>
-        <strong id="tip-country-armies" class="highlight">3 Armies</strong>
+        <strong id="tip-country-armies" class="highlight">12 Troops</strong>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         CITY MANAGEMENT DRAWER (Slides up on city selection)
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div id="city-drawer" class="city-management-drawer" style="display:none;">
+      <div class="drawer-header">
+        <div class="city-identity">
+          <span id="drawer-city-icon" class="city-star-icon">🏙️</span>
+          <div>
+            <h3 id="drawer-city-name">PARIS</h3>
+            <span id="drawer-city-sub">Capital of France</span>
+          </div>
+        </div>
+        <div class="city-garrison-badge">
+          <span>Garrison:</span>
+          <strong id="drawer-garrison-count">12</strong> ⚔️
+        </div>
+        <button id="btn-close-city-drawer" class="btn-drawer-close">✕</button>
+      </div>
+
+      <!-- Drawer Content for Owned City -->
+      <div id="drawer-owned-content" class="drawer-body">
+        <!-- Upgrades Row -->
+        <div class="city-upgrades-grid">
+          <!-- Market Upgrade -->
+          <div class="upgrade-card">
+            <div class="card-icon">🏪</div>
+            <div class="card-info">
+              <span class="title">Market</span>
+              <span class="stat" id="drawer-market-level">Level 0/5</span>
+              <small class="benefit">+40% Income</small>
+            </div>
+            <button id="btn-upgrade-market" class="btn-upgrade-action">
+              <span id="market-cost-label">$100</span>
+            </button>
+          </div>
+
+          <!-- Barracks Upgrade -->
+          <div class="upgrade-card">
+            <div class="card-icon">🪖</div>
+            <div class="card-info">
+              <span class="title">Barracks</span>
+              <span class="stat" id="drawer-barracks-level">Level 0/5</span>
+              <small class="benefit">+40% Manpower</small>
+            </div>
+            <button id="btn-upgrade-barracks" class="btn-upgrade-action">
+              <span id="barracks-cost-label">$120</span>
+            </button>
+          </div>
+
+          <!-- Fort Upgrade -->
+          <div class="upgrade-card">
+            <div class="card-icon">🏰</div>
+            <div class="card-info">
+              <span class="title">Citadel</span>
+              <span class="stat" id="drawer-fort-level">Level 0/5</span>
+              <small class="benefit">+35% Defense</small>
+            </div>
+            <button id="btn-upgrade-fort" class="btn-upgrade-action">
+              <span id="fort-cost-label">$150</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Troops Mobilization & Marching Section -->
+        <div class="city-operations-row">
+          <!-- Recruitment Box -->
+          <div class="op-box recruit-box">
+            <div class="op-header">
+              <span>MOBILIZE TROOPS</span>
+              <span id="recruit-cost-preview" class="cost-tag">Cost: $20 | 10👥</span>
+            </div>
+            <div class="stepper-row">
+              <button class="step-btn" id="btn-rec-sub10">-10</button>
+              <input type="number" id="recruit-amount-input" class="step-input" value="10" min="1" max="500" />
+              <button class="step-btn" id="btn-rec-add10">+10</button>
+              <button class="step-btn" id="btn-rec-add50">+50</button>
+              <button id="btn-confirm-recruit" class="btn-primary-compact">RECRUIT</button>
+            </div>
+          </div>
+
+          <!-- March / Attack Box -->
+          <div class="op-box march-box">
+            <div class="op-header">
+              <span>MARCH ARMIES</span>
+              <span class="cost-tag">Connected supply routes</span>
+            </div>
+            <div class="march-selector-row">
+              <select id="march-target-select" class="clean-select compact">
+                <option value="">Select Target City...</option>
+              </select>
+              <input type="number" id="march-amount-input" class="step-input" value="5" min="1" />
+              <button id="btn-confirm-march" class="btn-attack-action">MARCH ❯</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Drawer Content for Neutral / Hostile City -->
+      <div id="drawer-hostile-content" class="drawer-body" style="display:none;">
+        <div class="foreign-city-intel">
+          <p>This city is held by <strong id="foreign-owner-name">Neutral Forces</strong>.</p>
+          <p>To capture this city, select an adjacent friendly city with troops and order a March on <span id="foreign-city-target">target</span>.</p>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════════════════
-       MODALS: CLEAN CREATE & JOIN
+       MODALS: COUNTRY SELECTION, TECH TREE, DIPLOMACY, FORMABLES
   ════════════════════════════════════════════════════════════════════════════ -->
 
-  <!-- Modal: Create Game -->
+  <!-- Modal 1: Country Picker (At start of game) -->
+  <div id="modal-country-select" class="clean-modal-backdrop" style="display:none;">
+    <div class="clean-modal-box large">
+      <div class="clean-modal-header">
+        <span>🌍 CHOOSE YOUR SOVEREIGN NATION</span>
+      </div>
+      <div class="country-picker-intro">
+        Select your homeland. Your starting cities, economy, and expansion corridors are determined by your nation.
+      </div>
+      <div id="country-cards-grid" class="country-cards-grid"></div>
+    </div>
+  </div>
+
+  <!-- Modal 2: Technology Tree -->
+  <div id="modal-tech-tree" class="clean-modal-backdrop" style="display:none;">
+    <div class="clean-modal-box large">
+      <div class="clean-modal-header">
+        <span>🧪 TECHNOLOGY & SCIENTIFIC RESEARCH</span>
+        <button class="modal-close-x" data-close="modal-tech-tree">✕</button>
+      </div>
+      <div class="tech-tree-wrapper">
+        <!-- Military Branch -->
+        <div class="tech-branch">
+          <h4 class="branch-title">⚔️ MILITARY DOCTRINE</h4>
+          <div id="tech-military-list" class="tech-items-col"></div>
+        </div>
+
+        <!-- Economic Branch -->
+        <div class="tech-branch">
+          <h4 class="branch-title">🏦 ECONOMIC DEVELOPMENT</h4>
+          <div id="tech-economic-list" class="tech-items-col"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 3: Diplomacy & Alliances -->
+  <div id="modal-diplomacy" class="clean-modal-backdrop" style="display:none;">
+    <div class="clean-modal-box">
+      <div class="clean-modal-header">
+        <span>🤝 DIPLOMACY & TREATIES</span>
+        <button class="modal-close-x" data-close="modal-diplomacy">✕</button>
+      </div>
+      <div class="clean-modal-body">
+        <div id="diplomacy-players-list" class="diplomacy-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 4: Formable Empires -->
+  <div id="modal-formables" class="clean-modal-backdrop" style="display:none;">
+    <div class="clean-modal-box large">
+      <div class="clean-modal-header">
+        <span>👑 FORMABLE HISTORICAL EMPIRES</span>
+        <button class="modal-close-x" data-close="modal-formables">✕</button>
+      </div>
+      <div class="clean-modal-body">
+        <div id="formables-cards-grid" class="formables-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 5: Create Game -->
   <div id="modal-create-game" class="clean-modal-backdrop" style="display:none;">
     <div class="clean-modal-box">
       <div class="clean-modal-header">
@@ -94,20 +293,20 @@
       </div>
       <div class="clean-modal-body">
         <div class="input-group">
-          <label>Your Name</label>
+          <label>Commander Name</label>
           <input type="text" id="create-player-name" class="clean-input" placeholder="Enter your name" maxlength="20" value="Commander" />
         </div>
         <div class="input-group">
-          <label>Room Name</label>
-          <input type="text" id="create-room-name" class="clean-input" placeholder="Room Name" maxlength="30" value="Europe Room" />
+          <label>Operation Theater Name</label>
+          <input type="text" id="create-room-name" class="clean-input" placeholder="Room Name" maxlength="30" value="Europe Conquest Room" />
         </div>
         <div class="input-group">
           <label>Max Players</label>
           <select id="create-room-max" class="clean-select">
-            <option value="2">2 Players</option>
-            <option value="3">3 Players</option>
-            <option value="4" selected>4 Players</option>
-            <option value="6">6 Players</option>
+            <option value="4">4 Players</option>
+            <option value="6" selected>6 Players</option>
+            <option value="8">8 Players</option>
+            <option value="14">14 Players (Discord Cap)</option>
           </select>
         </div>
         <div class="input-group">
@@ -123,33 +322,33 @@
         </div>
       </div>
       <div class="clean-modal-footer">
-        <button id="btn-submit-create" class="btn-action-primary">START GAME</button>
+        <button id="btn-submit-create" class="btn-action-primary">CREATE OPERATION</button>
       </div>
     </div>
   </div>
 
-  <!-- Modal: Join Game -->
+  <!-- Modal 6: Join Game -->
   <div id="modal-join-game" class="clean-modal-backdrop" style="display:none;">
     <div class="clean-modal-box">
       <div class="clean-modal-header">
-        <span>JOIN GAME</span>
+        <span>JOIN OPERATION</span>
         <button class="modal-close-x" data-close="modal-join-game">✕</button>
       </div>
       <div class="clean-modal-body">
         <div class="input-group">
-          <label>Your Name</label>
+          <label>Commander Name</label>
           <input type="text" id="join-player-name" class="clean-input" placeholder="Enter your name" maxlength="20" value="Commander" />
         </div>
         <div class="input-group">
-          <label>Active Rooms</label>
+          <label>Active Theaters</label>
           <div id="modal-rooms-list" class="rooms-container">
-            <div class="no-rooms-msg">Searching for rooms...</div>
+            <div class="no-rooms-msg">Searching for theaters...</div>
           </div>
         </div>
         <div class="input-group">
-          <label>Or Enter Room Code Directly</label>
+          <label>Direct Theater Code</label>
           <div class="code-join-row">
-            <input type="text" id="join-room-code-input" class="clean-input" placeholder="Room ID..." />
+            <input type="text" id="join-room-code-input" class="clean-input" placeholder="Theater ID..." />
             <button id="btn-join-code-direct" class="btn-code-connect">JOIN</button>
           </div>
         </div>
@@ -157,11 +356,11 @@
     </div>
   </div>
 
-  <!-- Modal: Waiting Room -->
+  <!-- Modal 7: Waiting Room -->
   <div id="modal-waiting-room" class="clean-modal-backdrop" style="display:none;">
     <div class="clean-modal-box">
       <div class="clean-modal-header">
-        <span id="waiting-room-title">ROOM</span>
+        <span id="waiting-room-title">OPERATION THEATER</span>
       </div>
       <div class="clean-modal-body">
         <div class="waiting-players-list" id="waiting-commanders-grid"></div>
@@ -172,39 +371,42 @@
       </div>
       <div class="clean-modal-footer dual">
         <button id="btn-leave-lobby" class="btn-cancel">LEAVE</button>
-        <button id="btn-launch-game" class="btn-action-primary">START GAME</button>
+        <button id="btn-launch-game" class="btn-action-primary">LAUNCH CONQUEST</button>
       </div>
     </div>
   </div>
 
-  <!-- Combat Clash Overlay -->
+  <!-- Clash / Battle Result Banner -->
   <div id="tactical-combat-modal" class="combat-overlay" style="display:none;">
     <div class="combat-box">
-      <div class="combat-title">⚔️ BATTLE ⚔️</div>
+      <div class="combat-title">⚔️ BATTLE CONCLUDED ⚔️</div>
       <div class="combat-sides">
         <div class="combat-side atk">
           <div class="side-name" id="clash-atk-name">Attacker</div>
-          <div class="dice-row" id="clash-atk-dice"></div>
+          <div class="troop-count" id="clash-atk-armies">50 Armies</div>
         </div>
         <div class="vs-divider">VS</div>
         <div class="combat-side def">
           <div class="side-name" id="clash-def-name">Defender</div>
-          <div class="dice-row" id="clash-def-dice"></div>
+          <div class="troop-count" id="clash-def-armies">30 Armies</div>
         </div>
       </div>
-      <div id="clash-outcome-text" class="clash-result"></div>
+      <div id="clash-outcome-text" class="clash-result">City Captured!</div>
     </div>
   </div>
 
-  <!-- Victory Screen -->
+  <!-- Victory Overlay -->
   <div id="tactical-victory-modal" class="victory-overlay" style="display:none;">
     <div class="victory-box">
-      <div class="trophy">🏆</div>
-      <h2>VICTORY!</h2>
+      <div class="trophy">👑</div>
+      <h2>EUROPE UNIFIED!</h2>
       <p id="victory-winner-announcement"></p>
-      <button id="btn-victory-hq" class="btn-action-primary">BACK TO MENU</button>
+      <button id="btn-victory-hq" class="btn-action-primary">RETURN TO HQ</button>
     </div>
   </div>
+
+  <!-- Notification Toast -->
+  <div id="toast-notification" class="toast-notification" style="display:none;"></div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/map.js"></script>

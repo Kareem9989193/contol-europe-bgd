@@ -1,138 +1,294 @@
 /**
- * map.js — Tactical Europe Map Renderer
- * Renders the authentic high-tech Europe Map (Image 2) on Canvas with:
- * - Real Europe tactical map background
- * - Glowing strategic nodes & pulse beacons
- * - Animated photon battle arcs connecting allied/adjacent territories
- * - 3D garrison strength badges
- * - Holographic tactical HUD elements & targeting reticles
- * - Zoom, pan, hover & click detection
+ * map.js — Grand Strategy Tactical Europe Map Renderer
+ * Renders 78 European Cities, real-time supply corridors, moving marching armies,
+ * combat clash animations, and supports touch/mouse pan and zoom.
  */
 
 const EuropeMap = (() => {
-  // Base dimensions of the user's tactical map image
   const BASE_WIDTH = 1024;
   const BASE_HEIGHT = 559;
 
-  // Strategic Territory Coordinates on the 1024x559 Tactical Map
-  const STRATEGIC_NODES = {
-    'United Kingdom': { x: 338, y: 242, capital: 'London', color: '#ef4444' },
-    'Ireland':        { x: 280, y: 232, capital: 'Dublin', color: '#10b981' },
-    'France':         { x: 375, y: 312, capital: 'Paris', color: '#3b82f6' },
-    'Spain':          { x: 265, y: 405, capital: 'Madrid', color: '#f59e0b' },
-    'Portugal':       { x: 202, y: 425, capital: 'Lisbon', color: '#10b981' },
-    'Germany':        { x: 472, y: 245, capital: 'Berlin', color: '#06b6d4' },
-    'Italy':          { x: 475, y: 415, capital: 'Rome', color: '#84cc16' },
-    'Poland':         { x: 555, y: 242, capital: 'Warsaw', color: '#ec4899' },
-    'Ukraine':        { x: 670, y: 275, capital: 'Kyiv', color: '#00f0ff' },
-    'Russia':         { x: 745, y: 165, capital: 'Moscow', color: '#10f070' },
-    'Sweden':         { x: 515, y: 140, capital: 'Stockholm', color: '#38bdf8' },
-    'Norway':         { x: 450, y: 145, capital: 'Oslo', color: '#f43f5e' },
-    'Finland':        { x: 585, y: 125, capital: 'Helsinki', color: '#a855f7' },
-    'Austria':        { x: 495, y: 315, capital: 'Vienna', color: '#e2e8f0' },
-    'Switzerland':    { x: 425, y: 335, capital: 'Bern', color: '#f87171' },
-    'Netherlands':    { x: 405, y: 238, capital: 'Amsterdam', color: '#fb923c' },
-    'Belgium':        { x: 395, y: 262, capital: 'Brussels', color: '#fbbf24' },
-    'Czechia':        { x: 500, y: 270, capital: 'Prague', color: '#a3e635' },
-    'Slovakia':       { x: 535, y: 295, capital: 'Bratislava', color: '#2dd4bf' },
-    'Hungary':        { x: 545, y: 325, capital: 'Budapest', color: '#facc15' },
-    'Romania':        { x: 620, y: 345, capital: 'Bucharest', color: '#38bdf8' },
-    'Bulgaria':       { x: 615, y: 390, capital: 'Sofia', color: '#c084fc' },
-    'Greece':         { x: 610, y: 460, capital: 'Athens', color: '#38bdf8' },
-    'Turkey':         { x: 710, y: 430, capital: 'Ankara', color: '#e11d48' },
-    'Denmark':        { x: 460, y: 195, capital: 'Copenhagen', color: '#f472b6' },
-    'Belarus':        { x: 625, y: 215, capital: 'Minsk', color: '#4ade80' },
-    'Lithuania':      { x: 590, y: 195, capital: 'Vilnius', color: '#e879f9' },
-    'Latvia':         { x: 585, y: 165, capital: 'Riga', color: '#67e8f9' },
-    'Estonia':        { x: 580, y: 135, capital: 'Tallinn', color: '#93c5fd' },
-    'Serbia':         { x: 575, y: 370, capital: 'Belgrade', color: '#f87171' },
-    'Croatia':        { x: 515, y: 350, capital: 'Zagreb', color: '#fbbf24' },
-    'Bosnia and Herzegovina': { x: 545, y: 375, capital: 'Sarajevo', color: '#a78bfa' },
-    'Albania':        { x: 575, y: 425, capital: 'Tirana', color: '#f43f5e' },
-    'Iceland':        { x: 255, y: 70,  capital: 'Reykjavik', color: '#e0e7ff' },
-  };
-
-  const FACTION_PALETTES = [
-    { name: 'Cyan Legion',   primary: '#00f0ff', glow: 'rgba(0, 240, 255, 0.6)', fill: 'rgba(0, 240, 255, 0.25)' },
-    { name: 'Crimson Order', primary: '#ef4444', glow: 'rgba(239, 68, 68, 0.6)', fill: 'rgba(239, 68, 68, 0.25)' },
-    { name: 'Solar Empire',  primary: '#ffd700', glow: 'rgba(255, 215, 0, 0.6)', fill: 'rgba(255, 215, 0, 0.25)' },
-    { name: 'Emerald Front', primary: '#10f070', glow: 'rgba(16, 240, 112, 0.6)', fill: 'rgba(16, 240, 112, 0.25)' },
-    { name: 'Amber Coalition', primary: '#f59e0b', glow: 'rgba(245, 158, 11, 0.6)', fill: 'rgba(245, 158, 11, 0.25)' },
-    { name: 'Amethyst Guard', primary: '#a855f7', glow: 'rgba(168, 85, 247, 0.6)', fill: 'rgba(168, 85, 247, 0.25)' },
-  ];
-
-  // ─── State ───────────────────────────────────────────────────────────
   let canvas, ctx;
   let mapImage = new Image();
   let isImageLoaded = false;
 
-  let hoveredCountry = null;
-  let selectedCountry = null;
-  let targetCountry = null;
-
-  // Viewport Transform
+  // Viewport state
   let scale = 1;
   let offsetX = 0;
   let offsetY = 0;
   let isDragging = false;
   let dragStartX = 0;
   let dragStartY = 0;
-  let lastOffsetX = 0;
-  let lastOffsetY = 0;
+  let hasMoved = false;
 
-  // Animation ticks
+  // Touch gesture state
+  let touchStartDist = 0;
+  let initialScale = 1;
+
+  // Selection & Interactions
+  let selectedCity = null;
+  let hoveredCity = null;
+  let targetCity = null;
+
+  // Animation & Particles
   let animTick = 0;
+  let combatExplosions = []; // { x, y, radius, maxRadius, alpha, color }
+
+  // Game data & state
+  let gameState = null;
+  let myPlayerId = null;
 
   // Callbacks
-  let onHoverCallback = null;
-  let onClickCallback = null;
+  let onCitySelectCallback = null;
+  let onMarchCallback = null;
 
-  // Game state reference
-  let gameState = null;
+  function init(canvasId) {
+    canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    ctx = canvas.getContext('2d');
 
-  // ─── Coordinate Conversion ───────────────────────────────────────────
-  function mapToScreen(mx, my) {
-    return {
-      x: mx * scale + offsetX,
-      y: my * scale + offsetY,
+    mapImage.src = '/assets/europe_tactical_map.jpg';
+    mapImage.onload = () => {
+      isImageLoaded = true;
     };
+    mapImage.onerror = () => {
+      console.warn('Map background image not found, using procedural grid.');
+    };
+
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    setupInteractions();
+    requestAnimationFrame(render);
+  }
+
+  function resizeCanvas() {
+    if (!canvas) return;
+    const parent = canvas.parentElement || document.body;
+    canvas.width = parent.clientWidth;
+    canvas.height = parent.clientHeight;
+
+    // Center map by default if first load
+    if (scale === 1 && offsetX === 0 && offsetY === 0) {
+      fitMapToScreen();
+    }
+  }
+
+  function fitMapToScreen() {
+    if (!canvas) return;
+    const scaleX = canvas.width / BASE_WIDTH;
+    const scaleY = canvas.height / BASE_HEIGHT;
+    scale = Math.min(scaleX, scaleY) * 0.98;
+    offsetX = (canvas.width - BASE_WIDTH * scale) / 2;
+    offsetY = (canvas.height - BASE_HEIGHT * scale) / 2;
+  }
+
+  function setupInteractions() {
+    // Mouse events
+    canvas.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      hasMoved = false;
+      dragStartX = e.clientX - offsetX;
+      dragStartY = e.clientY - offsetY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        hasMoved = true;
+        offsetX = e.clientX - dragStartX;
+        offsetY = e.clientY - dragStartY;
+        clampOffset();
+      } else {
+        checkHover(e.clientX, e.clientY);
+      }
+    });
+
+    window.addEventListener('mouseup', (e) => {
+      if (isDragging && !hasMoved) {
+        handleCanvasClick(e.clientX, e.clientY);
+      }
+      isDragging = false;
+    });
+
+    // Mouse wheel zoom
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
+      zoomAtPoint(e.clientX, e.clientY, zoomFactor);
+    }, { passive: false });
+
+    // Touch events for mobile
+    canvas.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        isDragging = true;
+        hasMoved = false;
+        dragStartX = e.touches[0].clientX - offsetX;
+        dragStartY = e.touches[0].clientY - offsetY;
+      } else if (e.touches.length === 2) {
+        isDragging = false;
+        touchStartDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        initialScale = scale;
+      }
+    }, { passive: true });
+
+    canvas.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 1 && isDragging) {
+        hasMoved = true;
+        offsetX = e.touches[0].clientX - dragStartX;
+        offsetY = e.touches[0].clientY - dragStartY;
+        clampOffset();
+      } else if (e.touches.length === 2 && touchStartDist > 0) {
+        const currentDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        const factor = currentDist / touchStartDist;
+        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        zoomAtPoint(midX, midY, factor);
+        touchStartDist = currentDist;
+      }
+    }, { passive: true });
+
+    canvas.addEventListener('touchend', (e) => {
+      if (isDragging && !hasMoved && e.changedTouches.length === 1) {
+        const t = e.changedTouches[0];
+        handleCanvasClick(t.clientX, t.clientY);
+      }
+      isDragging = false;
+    });
+  }
+
+  function zoomAtPoint(screenX, screenY, factor) {
+    const minScale = 0.5;
+    const maxScale = 3.5;
+    const newScale = Math.max(minScale, Math.min(maxScale, scale * factor));
+    if (newScale === scale) return;
+
+    const mapX = (screenX - offsetX) / scale;
+    const mapY = (screenY - offsetY) / scale;
+
+    scale = newScale;
+    offsetX = screenX - mapX * scale;
+    offsetY = screenY - mapY * scale;
+    clampOffset();
+  }
+
+  function clampOffset() {
+    const margin = 200 * scale;
+    const minX = canvas.width - BASE_WIDTH * scale - margin;
+    const maxX = margin;
+    const minY = canvas.height - BASE_HEIGHT * scale - margin;
+    const maxY = margin;
+
+    offsetX = Math.max(minX, Math.min(maxX, offsetX));
+    offsetY = Math.max(minY, Math.min(maxY, offsetY));
   }
 
   function screenToMap(sx, sy) {
     return {
       x: (sx - offsetX) / scale,
-      y: (sy - offsetY) / scale,
+      y: (sy - offsetY) / scale
     };
   }
 
-  // ─── Strategic Connections (Arc lines between territories) ───────────
-  function getStrategicConnections() {
-    if (!gameState?.adjacency) return [];
-    const drawnPairs = new Set();
-    const arcs = [];
+  function checkHover(clientX, clientY) {
+    if (!gameState?.cities) return;
+    const rect = canvas.getBoundingClientRect();
+    const mapPt = screenToMap(clientX - rect.left, clientY - rect.top);
 
-    for (const [from, neighbors] of Object.entries(gameState.adjacency)) {
-      const fromNode = STRATEGIC_NODES[from];
-      if (!fromNode) continue;
-
-      for (const to of neighbors) {
-        const toNode = STRATEGIC_NODES[to];
-        if (!toNode) continue;
-
-        const key = [from, to].sort().join('::');
-        if (!drawnPairs.has(key)) {
-          drawnPairs.add(key);
-          arcs.push({ from, to, x1: fromNode.x, y1: fromNode.y, x2: toNode.x, y2: toNode.y });
-        }
+    let found = null;
+    for (const city of Object.values(gameState.cities)) {
+      const dist = Math.hypot(mapPt.x - city.x, mapPt.y - city.y);
+      if (dist <= 18) {
+        found = city.name;
+        break;
       }
     }
-    return arcs;
+
+    if (found !== hoveredCity) {
+      hoveredCity = found;
+      canvas.style.cursor = hoveredCity ? 'pointer' : 'default';
+      updateTooltip(hoveredCity, clientX, clientY);
+    }
   }
 
-  // ─── Rendering Loop ──────────────────────────────────────────────────
+  function handleCanvasClick(clientX, clientY) {
+    if (!gameState?.cities) return;
+    const rect = canvas.getBoundingClientRect();
+    const mapPt = screenToMap(clientX - rect.left, clientY - rect.top);
+
+    let clickedCity = null;
+    for (const city of Object.values(gameState.cities)) {
+      const dist = Math.hypot(mapPt.x - city.x, mapPt.y - city.y);
+      if (dist <= 22) {
+        clickedCity = city.name;
+        break;
+      }
+    }
+
+    if (clickedCity) {
+      if (selectedCity && selectedCity !== clickedCity) {
+        // Check if clickedCity is connected to selectedCity
+        const neighbors = gameState.connections?.[selectedCity] || [];
+        if (neighbors.includes(clickedCity)) {
+          // If selectedCity is owned by player -> trigger March / Attack intent!
+          const fromCityObj = gameState.cities[selectedCity];
+          if (fromCityObj && fromCityObj.owner === myPlayerId) {
+            if (onMarchCallback) {
+              onMarchCallback(selectedCity, clickedCity);
+              return;
+            }
+          }
+        }
+      }
+
+      selectedCity = clickedCity;
+      if (onCitySelectCallback) {
+        onCitySelectCallback(gameState.cities[selectedCity]);
+      }
+    } else {
+      selectedCity = null;
+      if (onCitySelectCallback) {
+        onCitySelectCallback(null);
+      }
+    }
+  }
+
+  function updateTooltip(cityName, sx, sy) {
+    const tipEl = document.getElementById('tactical-country-tooltip');
+    if (!tipEl) return;
+
+    if (!cityName || !gameState?.cities?.[cityName]) {
+      tipEl.style.display = 'none';
+      return;
+    }
+
+    const city = gameState.cities[cityName];
+    const ownerPlayer = city.owner ? gameState.players?.[city.owner] : null;
+    const ownerName = ownerPlayer ? `${ownerPlayer.name} (${ownerPlayer.country || 'Empire'})` : 'Neutral';
+    const ownerColor = ownerPlayer ? ownerPlayer.color : '#94a3b8';
+
+    document.getElementById('tip-country-name').textContent = `${city.name.toUpperCase()} ${city.isCapital ? '⭐' : ''}`;
+    const ownerEl = document.getElementById('tip-country-owner');
+    ownerEl.textContent = ownerName;
+    ownerEl.style.color = ownerColor;
+
+    const armEl = document.getElementById('tip-country-armies');
+    armEl.textContent = `${city.armies} Troops | +$${Math.round(city.baseIncome * (1 + (city.levelMarket||0)*0.4))}/tick`;
+
+    tipEl.style.display = 'block';
+    tipEl.style.left = Math.min(window.innerWidth - 200, sx + 15) + 'px';
+    tipEl.style.top = Math.min(window.innerHeight - 100, sy + 15) + 'px';
+  }
+
+  // ─── Render Loop ────────────────────────────────────────────────────────────
   function render() {
     if (!canvas || !ctx) return;
-    animTick += 0.025;
+    animTick += 0.02;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -140,426 +296,317 @@ const EuropeMap = (() => {
     ctx.translate(offsetX, offsetY);
     ctx.scale(scale, scale);
 
-    // 1. Draw Tactical Map Base Image
+    // 1. Draw Map Background
     if (isImageLoaded) {
       ctx.drawImage(mapImage, 0, 0, BASE_WIDTH, BASE_HEIGHT);
     } else {
-      ctx.fillStyle = '#060b18';
+      ctx.fillStyle = '#060d1d';
       ctx.fillRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
     }
 
-    // 2. Draw High-Tech Grid & Scanlines
-    drawTacticalGrid();
+    // 2. Draw Supply lines / routes between connected cities
+    drawSupplyRoutes();
 
-    // 3. Draw Connecting Battle & Supply Arcs
-    drawSupplyArcs();
+    // 3. Draw Marching Armies
+    drawMarchingArmies();
 
-    // 4. Draw Attack Arrow if aiming
-    if (selectedCountry && targetCountry) {
-      drawAttackReticle(selectedCountry, targetCountry);
+    // 4. Draw Tactical Reticle on Selected / Target City
+    if (selectedCity && gameState?.cities?.[selectedCity]) {
+      drawSelectionReticle(gameState.cities[selectedCity]);
     }
 
-    // 5. Draw Strategic Nodes & Army Counters
-    drawStrategicNodes();
+    // 5. Draw Cities Nodes & Badges
+    drawCities();
+
+    // 6. Draw Combat Explosions
+    drawExplosions();
 
     ctx.restore();
 
     requestAnimationFrame(render);
   }
 
-  // ─── Draw Elements ───────────────────────────────────────────────────
-  function drawTacticalGrid() {
+  function drawSupplyRoutes() {
+    if (!gameState?.connections || !gameState?.cities) return;
     ctx.save();
-    ctx.strokeStyle = 'rgba(0, 240, 255, 0.04)';
-    ctx.lineWidth = 1;
 
-    // Grid lines
-    for (let x = 0; x <= BASE_WIDTH; x += 60) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, BASE_HEIGHT);
-      ctx.stroke();
+    const drawn = new Set();
+    const connections = gameState.connections;
+
+    for (const [c1, neighbors] of Object.entries(connections)) {
+      const p1 = gameState.cities[c1];
+      if (!p1) continue;
+
+      for (const c2 of neighbors) {
+        const p2 = gameState.cities[c2];
+        if (!p2) continue;
+
+        const key = [c1, c2].sort().join('::');
+        if (drawn.has(key)) continue;
+        drawn.add(key);
+
+        const isFriendlyRoute = p1.owner && p2.owner && p1.owner === p2.owner;
+        const isSelectedRoute = (c1 === selectedCity || c2 === selectedCity);
+
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+
+        if (isSelectedRoute) {
+          ctx.strokeStyle = 'rgba(255, 215, 0, 0.65)';
+          ctx.lineWidth = 2.2;
+          ctx.setLineDash([5, 3]);
+        } else if (isFriendlyRoute) {
+          const owner = gameState.players?.[p1.owner];
+          ctx.strokeStyle = owner ? `${owner.color}44` : 'rgba(59, 130, 246, 0.25)';
+          ctx.lineWidth = 1.4;
+          ctx.setLineDash([]);
+        } else {
+          ctx.strokeStyle = 'rgba(148, 163, 184, 0.18)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([]);
+        }
+        ctx.stroke();
+
+        // Subtle traveling pulse along connected routes
+        if (isSelectedRoute || isFriendlyRoute) {
+          const t = (animTick + (p1.x * 0.005)) % 1;
+          const px = p1.x + (p2.x - p1.x) * t;
+          const py = p1.y + (p2.y - p1.y) * t;
+
+          ctx.beginPath();
+          ctx.arc(px, py, 2.5, 0, Math.PI * 2);
+          ctx.fillStyle = isSelectedRoute ? '#ffd700' : '#38bdf8';
+          ctx.shadowColor = isSelectedRoute ? '#ffd700' : '#38bdf8';
+          ctx.shadowBlur = 6;
+          ctx.fill();
+        }
+      }
     }
-    for (let y = 0; y <= BASE_HEIGHT; y += 60) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(BASE_WIDTH, y);
-      ctx.stroke();
-    }
+
     ctx.restore();
   }
 
-  function drawSupplyArcs() {
-    const arcs = getStrategicConnections();
+  function drawMarchingArmies() {
+    if (!gameState?.marches || !gameState?.cities) return;
+    const now = Date.now();
     ctx.save();
 
-    arcs.forEach(arc => {
-      const isSelectedArc = (arc.from === selectedCountry && arc.to === targetCountry) ||
-                            (arc.to === selectedCountry && arc.from === targetCountry);
+    gameState.marches.forEach(march => {
+      const from = gameState.cities[march.fromCity];
+      const to = gameState.cities[march.toCity];
+      if (!from || !to) return;
 
-      // Arc curve control point
-      const midX = (arc.x1 + arc.x2) / 2;
-      const midY = (arc.y1 + arc.y2) / 2 - 20;
+      const elapsed = Math.max(0, now - march.startTime);
+      const progress = Math.min(1, elapsed / march.duration);
 
-      // Base Arc Line
+      const curX = from.x + (to.x - from.x) * progress;
+      const curY = from.y + (to.y - from.y) * progress;
+
+      // March path arrow
       ctx.beginPath();
-      ctx.moveTo(arc.x1, arc.y1);
-      ctx.quadraticCurveTo(midX, midY, arc.x2, arc.y2);
-
-      if (isSelectedArc) {
-        ctx.strokeStyle = 'rgba(239, 68, 68, 0.85)';
-        ctx.lineWidth = 2.5;
-        ctx.setLineDash([6, 4]);
-      } else {
-        ctx.strokeStyle = 'rgba(0, 240, 255, 0.18)';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([]);
-      }
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.strokeStyle = `${march.ownerColor || '#ef4444'}bb`;
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([4, 4]);
       ctx.stroke();
 
-      // Traveling Light Photon (Animated Dot)
-      const t = (animTick + (arc.x1 * 0.01)) % 1;
-      const qx = (1 - t) * (1 - t) * arc.x1 + 2 * (1 - t) * t * midX + t * t * arc.x2;
-      const qy = (1 - t) * (1 - t) * arc.y1 + 2 * (1 - t) * t * midY + t * t * arc.y2;
+      // Army Marker: Chevron / Badge moving
+      ctx.save();
+      ctx.translate(curX, curY);
 
+      // Glow behind army badge
       ctx.beginPath();
-      ctx.arc(qx, qy, isSelectedArc ? 3.5 : 2, 0, Math.PI * 2);
-      ctx.fillStyle = isSelectedArc ? '#ef4444' : '#00f0ff';
-      ctx.shadowColor = isSelectedArc ? '#ef4444' : '#00f0ff';
-      ctx.shadowBlur = 8;
+      ctx.arc(0, 0, 11, 0, Math.PI * 2);
+      ctx.fillStyle = march.ownerColor || '#ef4444';
+      ctx.shadowColor = march.ownerColor || '#ef4444';
+      ctx.shadowBlur = 10;
       ctx.fill();
+
+      // Center Army Icon
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`⚔️${march.count}`, 0, -14);
+
+      ctx.restore();
     });
 
     ctx.restore();
   }
 
-  function drawAttackReticle(fromName, toName) {
-    const from = STRATEGIC_NODES[fromName];
-    const to = STRATEGIC_NODES[toName];
-    if (!from || !to) return;
-
+  function drawSelectionReticle(city) {
     ctx.save();
-    // Glowing Red Attack Beam
+    const r = 24 + Math.sin(animTick * 6) * 3;
     ctx.beginPath();
-    ctx.moveTo(from.x, from.y);
-    ctx.lineTo(to.x, to.y);
-    ctx.strokeStyle = '#ef4444';
-    ctx.lineWidth = 3;
-    ctx.shadowColor = '#ef4444';
+    ctx.arc(city.x, city.y, r, 0, Math.PI * 2);
+    ctx.strokeStyle = '#ffd700';
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([4, 4]);
+    ctx.shadowColor = '#ffd700';
     ctx.shadowBlur = 12;
     ctx.stroke();
 
-    // Target Reticle on Destination
-    const pulseRadius = 18 + Math.sin(animTick * 4) * 4;
-    ctx.beginPath();
-    ctx.arc(to.x, to.y, pulseRadius, 0, Math.PI * 2);
-    ctx.strokeStyle = '#ef4444';
+    // Four corner targeting markers
+    const d = r + 4;
+    ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 2;
-    ctx.stroke();
+    ctx.setLineDash([]);
+    // Top
+    ctx.beginPath(); ctx.moveTo(city.x, city.y - d - 4); ctx.lineTo(city.x, city.y - d + 2); ctx.stroke();
+    // Bottom
+    ctx.beginPath(); ctx.moveTo(city.x, city.y + d - 2); ctx.lineTo(city.x, city.y + d + 4); ctx.stroke();
+    // Left
+    ctx.beginPath(); ctx.moveTo(city.x - d - 4, city.y); ctx.lineTo(city.x - d + 2, city.y); ctx.stroke();
+    // Right
+    ctx.beginPath(); ctx.moveTo(city.x + d - 2, city.y); ctx.lineTo(city.x + d + 4, city.y); ctx.stroke();
 
     ctx.restore();
   }
 
-  function drawStrategicNodes() {
-    for (const [name, node] of Object.entries(STRATEGIC_NODES)) {
-      const territory = gameState?.territories?.[name];
-      const owner = territory?.owner;
-      const armies = territory?.armies || 2;
-      const isHovered = hoveredCountry === name;
-      const isSelected = selectedCountry === name;
-      const isTarget = targetCountry === name;
+  function drawCities() {
+    if (!gameState?.cities) return;
+    ctx.save();
 
-      const colorIndex = owner ? getPlayerColorIndex(owner) : -1;
-      const palette = colorIndex >= 0 ? FACTION_PALETTES[colorIndex % FACTION_PALETTES.length] : {
-        primary: '#94a3b8',
-        glow: 'rgba(148, 163, 184, 0.4)',
-        fill: 'rgba(30, 41, 59, 0.7)',
-      };
+    for (const city of Object.values(gameState.cities)) {
+      const owner = city.owner ? gameState.players?.[city.owner] : null;
+      const isMine = city.owner === myPlayerId;
+      const isHovered = city.name === hoveredCity;
+      const isSelected = city.name === selectedCity;
 
-      ctx.save();
+      const fillColor = owner ? owner.color : '#64748b';
+      const radius = city.isCapital ? 10 : 8;
 
-      // 1. Pulsing Outer Beacon
-      const pulseSize = 14 + Math.sin(animTick * 2.5 + node.x) * 3;
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, isSelected ? 22 : pulseSize, 0, Math.PI * 2);
-      ctx.fillStyle = isSelected ? 'rgba(255, 215, 0, 0.3)' : palette.glow;
-      ctx.shadowColor = isSelected ? '#ffd700' : palette.primary;
-      ctx.shadowBlur = isSelected || isHovered ? 16 : 8;
-      ctx.fill();
-
-      // 2. Center Strategic Node Dot
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, isHovered || isSelected ? 7 : 5, 0, Math.PI * 2);
-      ctx.fillStyle = isSelected ? '#ffd700' : isTarget ? '#ef4444' : palette.primary;
-      ctx.fill();
-      ctx.strokeStyle = '#030712';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-
-      // 3. Garrison Army Badge (Hexagonal / Circular 3D Counter)
-      const badgeY = node.y - 18;
-      ctx.beginPath();
-      ctx.arc(node.x, badgeY, 12, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(6, 11, 25, 0.92)';
-      ctx.shadowBlur = isSelected ? 12 : 6;
-      ctx.fill();
-
-      ctx.lineWidth = isSelected ? 2 : 1.2;
-      ctx.strokeStyle = isSelected ? '#ffd700' : isTarget ? '#ef4444' : palette.primary;
-      ctx.stroke();
-
-      // Army Number Text
-      ctx.fillStyle = isSelected ? '#ffd700' : '#f8fafc';
-      ctx.font = '800 11px "Orbitron", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.shadowBlur = 0;
-      ctx.fillText(armies.toString(), node.x, badgeY + 0.5);
-
-      // Country Label on Hover
-      if (isHovered || isSelected) {
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '700 10px "Orbitron", sans-serif';
-        ctx.shadowColor = '#000';
-        ctx.shadowBlur = 4;
-        ctx.fillText(name.toUpperCase(), node.x, node.y + 16);
+      // Outer glow for owned cities
+      if (owner) {
+        ctx.beginPath();
+        ctx.arc(city.x, city.y, radius + 4, 0, Math.PI * 2);
+        ctx.fillStyle = `${fillColor}33`;
+        ctx.fill();
       }
 
+      // Base City Node
+      ctx.beginPath();
+      ctx.arc(city.x, city.y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = fillColor;
+      ctx.shadowColor = isHovered ? '#ffffff' : fillColor;
+      ctx.shadowBlur = isHovered ? 14 : 6;
+      ctx.fill();
+
+      // Border ring
+      ctx.beginPath();
+      ctx.arc(city.x, city.y, radius, 0, Math.PI * 2);
+      ctx.strokeStyle = isMine ? '#ffffff' : (isHovered ? '#ffd700' : 'rgba(255,255,255,0.7)');
+      ctx.lineWidth = isMine ? 2.5 : 1.5;
+      ctx.stroke();
+
+      // Capital Star / Crown Icon
+      if (city.isCapital) {
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('⭐', city.x, city.y - 1);
+      }
+
+      // Fortress indicator
+      if (city.levelFort > 0) {
+        ctx.font = '9px sans-serif';
+        ctx.fillText('🏰', city.x + 10, city.y - 8);
+      }
+
+      // Troop count badge pill
+      drawTroopBadge(city.x, city.y + radius + 7, city.armies, isMine);
+
+      // City Name Label
+      ctx.font = city.isCapital ? 'bold 10px Rajdhani, sans-serif' : '600 9px Rajdhani, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+
+      // Text background for readability
+      const labelText = city.name;
+      const textWidth = ctx.measureText(labelText).width;
+      ctx.fillStyle = 'rgba(5, 10, 20, 0.75)';
+      ctx.fillRect(city.x - textWidth / 2 - 2, city.y + radius + 15, textWidth + 4, 11);
+
+      ctx.fillStyle = isMine ? '#38bdf8' : '#ffffff';
+      ctx.fillText(labelText, city.x, city.y + radius + 15);
+    }
+
+    ctx.restore();
+  }
+
+  function drawTroopBadge(bx, by, count, isMine) {
+    const str = count >= 1000 ? (count / 1000).toFixed(1) + 'k' : count.toString();
+    ctx.font = 'bold 9px Orbitron, sans-serif';
+    const w = Math.max(18, ctx.measureText(str).width + 8);
+    const h = 12;
+
+    ctx.fillStyle = isMine ? '#0284c7' : '#0f172a';
+    ctx.strokeStyle = isMine ? '#38bdf8' : '#475569';
+    ctx.lineWidth = 1;
+
+    ctx.beginPath();
+    ctx.roundRect(bx - w / 2, by - h / 2, w, h, 3);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(str, bx, by);
+  }
+
+  function drawExplosions() {
+    for (let i = combatExplosions.length - 1; i >= 0; i--) {
+      const exp = combatExplosions[i];
+      exp.radius += 1.5;
+      exp.alpha -= 0.04;
+
+      if (exp.alpha <= 0) {
+        combatExplosions.splice(i, 1);
+        continue;
+      }
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(239, 68, 68, ${exp.alpha})`;
+      ctx.lineWidth = 3;
+      ctx.shadowColor = '#ef4444';
+      ctx.shadowBlur = 15;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(exp.x, exp.y, exp.radius * 0.6, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255, 215, 0, ${exp.alpha * 0.7})`;
+      ctx.fill();
       ctx.restore();
     }
   }
 
-  function getPlayerColorIndex(playerId) {
-    if (!gameState?.players) return -1;
-    const player = gameState.players[playerId];
-    return player ? player.colorIndex : -1;
-  }
-
-  // ─── Hit Testing ─────────────────────────────────────────────────────
-  function getCountryAtPoint(mapX, mapY) {
-    let closestCountry = null;
-    let closestDist = 28; // Hit radius
-
-    for (const [name, node] of Object.entries(STRATEGIC_NODES)) {
-      const dx = mapX - node.x;
-      const dy = mapY - node.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-
-      if (dist < closestDist) {
-        closestDist = dist;
-        closestCountry = name;
-      }
-    }
-    return closestCountry;
-  }
-
-  // ─── Mouse & Viewport Events ─────────────────────────────────────────
-  function setupEvents() {
-    canvas.addEventListener('mousemove', (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const sx = (e.clientX - rect.left) * (canvas.width / rect.width);
-      const sy = (e.clientY - rect.top) * (canvas.height / rect.height);
-
-      if (isDragging) {
-        offsetX = lastOffsetX + (e.clientX - dragStartX);
-        offsetY = lastOffsetY + (e.clientY - dragStartY);
-        return;
-      }
-
-      const mapCoords = screenToMap(sx, sy);
-      const country = getCountryAtPoint(mapCoords.x, mapCoords.y);
-
-      if (country !== hoveredCountry) {
-        hoveredCountry = country;
-        canvas.style.cursor = country ? 'pointer' : 'crosshair';
-        if (onHoverCallback) onHoverCallback(country, e.clientX, e.clientY);
-      } else if (country && onHoverCallback) {
-        onHoverCallback(country, e.clientX, e.clientY);
-      }
+  function triggerCombatEffect(cityName) {
+    if (!gameState?.cities?.[cityName]) return;
+    const city = gameState.cities[cityName];
+    combatExplosions.push({
+      x: city.x,
+      y: city.y,
+      radius: 6,
+      alpha: 1.0
     });
-
-    canvas.addEventListener('mousedown', (e) => {
-      if (e.button === 1 || e.button === 2 || (e.button === 0 && e.altKey)) {
-        isDragging = true;
-        dragStartX = e.clientX;
-        dragStartY = e.clientY;
-        lastOffsetX = offsetX;
-        lastOffsetY = offsetY;
-        canvas.style.cursor = 'grabbing';
-        e.preventDefault();
-      }
-    });
-
-    canvas.addEventListener('mouseup', (e) => {
-      if (isDragging) {
-        isDragging = false;
-        canvas.style.cursor = hoveredCountry ? 'pointer' : 'crosshair';
-        return;
-      }
-
-      if (e.button === 0) {
-        const rect = canvas.getBoundingClientRect();
-        const sx = (e.clientX - rect.left) * (canvas.width / rect.width);
-        const sy = (e.clientY - rect.top) * (canvas.height / rect.height);
-        const mapCoords = screenToMap(sx, sy);
-        const country = getCountryAtPoint(mapCoords.x, mapCoords.y);
-
-        if (country && onClickCallback) {
-          onClickCallback(country);
-        }
-      }
-    });
-
-    canvas.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      const rect = canvas.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
-
-      const zoomFactor = e.deltaY < 0 ? 1.15 : 0.87;
-      const newScale = Math.max(0.6, Math.min(4.5, scale * zoomFactor));
-
-      offsetX = mx - (mx - offsetX) * (newScale / scale);
-      offsetY = my - (my - offsetY) * (newScale / scale);
-      scale = newScale;
-    }, { passive: false });
-
-    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-
-    // ─── Mobile Touch Support (Pan, Tap, Pinch Zoom) ───────────────────
-    let touchStartDist = 0;
-    let touchMoved = false;
-    let touchStartTime = 0;
-
-    canvas.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      touchStartTime = Date.now();
-      touchMoved = false;
-
-      if (e.touches.length === 1) {
-        const t = e.touches[0];
-        isDragging = true;
-        dragStartX = t.clientX;
-        dragStartY = t.clientY;
-        lastOffsetX = offsetX;
-        lastOffsetY = offsetY;
-      } else if (e.touches.length === 2) {
-        isDragging = false;
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        touchStartDist = Math.hypot(dx, dy);
-      }
-    }, { passive: false });
-
-    canvas.addEventListener('touchmove', (e) => {
-      e.preventDefault();
-      touchMoved = true;
-
-      if (e.touches.length === 1 && isDragging) {
-        const t = e.touches[0];
-        offsetX = lastOffsetX + (t.clientX - dragStartX);
-        offsetY = lastOffsetY + (t.clientY - dragStartY);
-      } else if (e.touches.length === 2) {
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        const dist = Math.hypot(dx, dy);
-
-        if (touchStartDist > 0) {
-          const factor = dist / touchStartDist;
-          scale = Math.max(0.6, Math.min(4.5, scale * factor));
-          touchStartDist = dist;
-        }
-      }
-    }, { passive: false });
-
-    canvas.addEventListener('touchend', (e) => {
-      e.preventDefault();
-      isDragging = false;
-
-      // Detect Tap (short duration, minimal move)
-      const touchDuration = Date.now() - touchStartTime;
-      if (!touchMoved || touchDuration < 300) {
-        const t = e.changedTouches[0];
-        if (t) {
-          const rect = canvas.getBoundingClientRect();
-          const sx = (t.clientX - rect.left) * (canvas.width / rect.width);
-          const sy = (t.clientY - rect.top) * (canvas.height / rect.height);
-          const mapCoords = screenToMap(sx, sy);
-          const country = getCountryAtPoint(mapCoords.x, mapCoords.y);
-
-          if (country && onClickCallback) {
-            onClickCallback(country);
-          }
-        }
-      }
-    }, { passive: false });
-
-    window.addEventListener('resize', fitToScreen);
   }
-
-  function fitToScreen() {
-    if (!canvas) return;
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = window.innerWidth * dpr;
-    canvas.height = window.innerHeight * dpr;
-    canvas.style.width = window.innerWidth + 'px';
-    canvas.style.height = window.innerHeight + 'px';
-
-    // Scale and center map perfectly to viewport
-    const scaleX = (window.innerWidth * dpr) / BASE_WIDTH;
-    const scaleY = (window.innerHeight * dpr) / BASE_HEIGHT;
-    scale = Math.min(scaleX, scaleY) * 1.05;
-
-    offsetX = ((window.innerWidth * dpr) - BASE_WIDTH * scale) / 2;
-    offsetY = ((window.innerHeight * dpr) - BASE_HEIGHT * scale) / 2;
-  }
-
-  // ─── Public API ──────────────────────────────────────────────────────
-  function init(canvasElement) {
-    canvas = canvasElement;
-    ctx = canvas.getContext('2d');
-    fitToScreen();
-
-    // Load Tactical Map Image
-    mapImage.onload = () => {
-      isImageLoaded = true;
-    };
-    mapImage.src = '/assets/europe_map.jpg';
-
-    setupEvents();
-    render();
-  }
-
-  function setGameState(state) {
-    gameState = state;
-  }
-
-  function setSelected(country) {
-    selectedCountry = country;
-  }
-
-  function setTarget(country) {
-    targetCountry = country;
-  }
-
-  function clearSelection() {
-    selectedCountry = null;
-    targetCountry = null;
-  }
-
-  function onHover(cb) { onHoverCallback = cb; }
-  function onClick(cb) { onClickCallback = cb; }
-
-  function getNodes() { return STRATEGIC_NODES; }
 
   return {
     init,
-    setGameState,
-    setSelected,
-    setTarget,
-    clearSelection,
-    onHover,
-    onClick,
-    getNodes,
+    setGameState: (state, myId) => {
+      gameState = state;
+      if (myId) myPlayerId = myId;
+    },
+    onCitySelect: (cb) => { onCitySelectCallback = cb; },
+    onMarch: (cb) => { onMarchCallback = cb; },
+    triggerCombatEffect,
+    selectCity: (cityName) => { selectedCity = cityName; },
+    fitMapToScreen
   };
 })();

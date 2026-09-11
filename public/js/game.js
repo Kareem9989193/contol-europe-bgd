@@ -1,27 +1,52 @@
 /**
- * game.js — Grand-Strategy Game Controller & Network Sync
- * Coordinates server rooms, AI skirmish fallback, turns, combat, and HUD
+ * game.js — Grand Strategy Game Controller
+ * Manages Socket.io networking, live Economy Ticks, City Management Drawer,
+ * Country Selection, Technology Tree, Diplomacy, Formable Empires, and AI Bots.
  */
 
 const Game = (() => {
   let socket = null;
-  let playerName = 'Commander Alpha';
+  let playerName = 'Commander';
   let roomState = null;
-  let selectedFrom = null;
-  let isBotGame = false;
+  let myPlayerId = null;
+  let selectedCityObj = null;
 
-  const FACTION_COLORS = ['#00f0ff', '#ef4444', '#ffd700', '#10f070', '#f59e0b', '#a855f7'];
+  // Cached Game Data
+  let countriesData = {};
+  let techsData = {};
+  let formablesData = {};
 
-  // ─── Network Connection ──────────────────────────────────────────────
-  function connect() {
+  // ─── Initialize ─────────────────────────────────────────────────────────────
+  async function init() {
+    // Pre-load static data
+    try {
+      const [cRes, tRes, fRes] = await Promise.all([
+        fetch('/data/countries.json').then(r => r.json()),
+        fetch('/data/techs.json').then(r => r.json()),
+        fetch('/data/formables.json').then(r => r.json()),
+      ]);
+      countriesData = cRes;
+      techsData = tRes;
+      formablesData = fRes;
+    } catch (e) {
+      console.warn('Could not preload game JSON files:', e);
+    }
+
+    connectSocket();
+    setupEventListeners();
+  }
+
+  // ─── Networking ─────────────────────────────────────────────────────────────
+  function connectSocket() {
     try {
       socket = io({
-        reconnectionAttempts: 5,
-        timeout: 8000,
+        reconnectionAttempts: 8,
+        timeout: 10000,
       });
 
       socket.on('connect', () => {
-        console.log('📡 Connected to Europe Conquest Server:', socket.id);
+        myPlayerId = socket.id;
+        console.log('📡 Connected to Europe Grand-Strategy Server. ID:', myPlayerId);
       });
 
       socket.on('rooms-updated', (rooms) => {
@@ -30,137 +55,588 @@ const Game = (() => {
 
       socket.on('room-state', (state) => {
         roomState = state;
-        updateTacticalHUD();
-        EuropeMap.setGameState(state);
+        myPlayerId = socket ? socket.id : myPlayerId;
+        EuropeMap.setGameState(state, myPlayerId);
+        updateTopHUD();
+        updateFactionsPanel();
+        updateBattleLog();
+        checkCountryPicker();
+
+        // Refresh city drawer if open
+        if (selectedCityObj && roomState.cities?.[selectedCityObj.name]) {
+          renderCityDrawer(roomState.cities[selectedCityObj.name]);
+        }
       });
 
       socket.on('game-started', () => {
         closeAllModals();
         showScreen('game-screen');
+        EuropeMap.fitMapToScreen();
       });
 
       socket.on('combat-result', (result) => {
+        EuropeMap.triggerCombatEffect(result.toCity);
         triggerCombatClashModal(result);
-        appendBattleIntel(result);
       });
 
-      socket.on('game-over', ({ winner, winnerName }) => {
-        triggerVictoryBanner(winnerName, winner === (socket ? socket.id : 'me'));
+      socket.on('formable-claimed', (data) => {
+        showToast(`👑 ${data.playerName} has formed the ${data.empireName}!`);
       });
 
-      socket.on('chat-message', (msg) => {
-        appendCommsMessage(msg);
+      socket.on('game-over', ({ winner, winnerName, country }) => {
+        triggerVictoryBanner(winnerName, country, winner === myPlayerId);
       });
 
-      socket.on('connect_error', () => {
-        console.warn('⚠️ Server unreachable. AI Battle Mode available.');
+      socket.on('notification', ({ message }) => {
+        showToast(message);
       });
     } catch (e) {
-      console.warn('Running in standalone/offline mode:', e);
+      console.warn('Socket error, running offline fallback:', e);
     }
   }
 
-  // ─── Screen & Modal Controls ─────────────────────────────────────────
+  // ─── Setup User Interactions & Events ───────────────────────────────────────
+  function setupEventListeners() {
+    // Map callbacks
+    EuropeMap.onCitySelect((city) => {
+      selectedCityObj = city;
+      if (city) {
+        renderCityDrawer(city);
+      } else {
+        closeCityDrawer();
+      }
+    });
+
+    EuropeMap.onMarch((fromCity, toCity) => {
+      // Direct drag/click march trigger
+      const fromObj = roomState?.cities?.[fromCity];
+      if (!fromObj || fromObj.armies <= 1) {
+        showToast('Not enough armies in this city to march!');
+        return;
+      }
+      const count = Math.max(1, Math.floor(fromObj.armies * 0.6));
+      marchTroops(fromCity, toCity, count);
+    });
+
+    // City Drawer Buttons
+    document.getElementById('btn-close-city-drawer')?.addEventListener('click', closeCityDrawer);
+
+    document.getElementById('btn-upgrade-market')?.addEventListener('click', () => {
+      if (!selectedCityObj) return;
+      socket?.emit('upgrade-city', { cityName: selectedCityObj.name, upgradeType: 'market' });
+    });
+
+    document.getElementById('btn-upgrade-barracks')?.addEventListener('click', () => {
+      if (!selectedCityObj) return;
+      socket?.emit('upgrade-city', { cityName: selectedCityObj.name, upgradeType: 'barracks' });
+    });
+
+    document.getElementById('btn-upgrade-fort')?.addEventListener('click', () => {
+      if (!selectedCityObj) return;
+      socket?.emit('upgrade-city', { cityName: selectedCityObj.name, upgradeType: 'fort' });
+    });
+
+    // Recruitment Steppers
+    const recInput = document.getElementById('recruit-amount-input');
+    document.getElementById('btn-rec-sub10')?.addEventListener('click', () => {
+      if (recInput) recInput.value = Math.max(1, parseInt(recInput.value || 10) - 10);
+      updateRecruitCostPreview();
+    });
+    document.getElementById('btn-rec-add10')?.addEventListener('click', () => {
+      if (recInput) recInput.value = parseInt(recInput.value || 0) + 10;
+      updateRecruitCostPreview();
+    });
+    document.getElementById('btn-rec-add50')?.addEventListener('click', () => {
+      if (recInput) recInput.value = parseInt(recInput.value || 0) + 50;
+      updateRecruitCostPreview();
+    });
+    recInput?.addEventListener('input', updateRecruitCostPreview);
+
+    document.getElementById('btn-confirm-recruit')?.addEventListener('click', () => {
+      if (!selectedCityObj || !recInput) return;
+      const count = parseInt(recInput.value) || 10;
+      socket?.emit('recruit-troops', { cityName: selectedCityObj.name, count });
+    });
+
+    // March Button in Drawer
+    document.getElementById('btn-confirm-march')?.addEventListener('click', () => {
+      if (!selectedCityObj) return;
+      const targetSelect = document.getElementById('march-target-select');
+      const amountInput = document.getElementById('march-amount-input');
+      const toCity = targetSelect?.value;
+      const count = parseInt(amountInput?.value || 5);
+
+      if (!toCity) {
+        showToast('Please select a destination city connected by supply routes.');
+        return;
+      }
+      marchTroops(selectedCityObj.name, toCity, count);
+    });
+
+    // HUD Actions
+    document.getElementById('btn-open-tech')?.addEventListener('click', () => {
+      openTechTreeModal();
+    });
+
+    document.getElementById('btn-open-diplo')?.addEventListener('click', () => {
+      openDiplomacyModal();
+    });
+
+    document.getElementById('btn-open-formables')?.addEventListener('click', () => {
+      openFormablesModal();
+    });
+
+    document.getElementById('btn-recenter-map')?.addEventListener('click', () => {
+      EuropeMap.fitMapToScreen();
+    });
+
+    document.getElementById('btn-tactical-exit')?.addEventListener('click', () => {
+      if (confirm('Return to Strategic HQ Main Menu?')) {
+        showScreen('main-menu-screen');
+      }
+    });
+
+    // Factions Panel Toggle
+    document.getElementById('factions-toggle')?.addEventListener('click', () => {
+      const panel = document.getElementById('factions-panel');
+      panel?.classList.toggle('collapsed');
+    });
+
+    // Victory Back button
+    document.getElementById('btn-victory-hq')?.addEventListener('click', () => {
+      document.getElementById('tactical-victory-modal').style.display = 'none';
+      showScreen('main-menu-screen');
+    });
+
+    // Modal Close buttons
+    document.querySelectorAll('.modal-close-x').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.getAttribute('data-close');
+        if (targetId) closeModal(targetId);
+      });
+    });
+  }
+
+  // ─── Top HUD Updates ─────────────────────────────────────────────────────────
+  function updateTopHUD() {
+    if (!roomState) return;
+    const myPlayer = roomState.players?.[myPlayerId];
+    if (!myPlayer) return;
+
+    // Player & Country info
+    document.getElementById('hud-player-name').textContent = myPlayer.name;
+    const countryEl = document.getElementById('hud-player-country');
+    countryEl.textContent = myPlayer.country || 'Claiming Nation...';
+    countryEl.style.color = myPlayer.color || '#38bdf8';
+
+    // Money & Income
+    document.getElementById('hud-money-val').textContent = `$${Math.round(myPlayer.money)}`;
+    document.getElementById('hud-income-rate').textContent = `+$${myPlayer.incomeRate}/tick`;
+
+    // Manpower & Mobilization rate
+    document.getElementById('hud-manpower-val').textContent = `${Math.round(myPlayer.manpower)} 👥`;
+    document.getElementById('hud-manpower-rate').textContent = `+${myPlayer.manpowerRate}/tick`;
+  }
+
+  function updateFactionsPanel() {
+    if (!roomState?.players) return;
+    const listEl = document.getElementById('intel-factions-list');
+    const countEl = document.getElementById('commanders-count');
+    if (!listEl) return;
+
+    const players = Object.values(roomState.players);
+    if (countEl) countEl.textContent = players.length;
+
+    listEl.innerHTML = players.map(p => {
+      const isMe = p.id === myPlayerId;
+      const ownedCities = Object.values(roomState.cities || {}).filter(c => c.owner === p.id).length;
+      return `
+        <div class="faction-row ${isMe ? 'is-me' : ''} ${!p.alive ? 'eliminated' : ''}">
+          <div class="faction-dot" style="background:${p.color}"></div>
+          <div class="faction-meta">
+            <span class="fname">${p.name} ${isMe ? '(You)' : ''}</span>
+            <small class="fcountry">${p.country || 'Neutral'} • ${ownedCities} cities</small>
+          </div>
+          <div class="faction-wealth">$${Math.round(p.money)}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function updateBattleLog() {
+    if (!roomState?.combatLog) return;
+    const logEl = document.getElementById('intel-battle-log');
+    if (!logEl) return;
+
+    logEl.innerHTML = roomState.combatLog.map(item => `
+      <div class="log-entry">${item.text}</div>
+    `).join('');
+  }
+
+  // ─── Country Selection ──────────────────────────────────────────────────────
+  function checkCountryPicker() {
+    if (!roomState || roomState.state !== 'playing') return;
+    const myPlayer = roomState.players?.[myPlayerId];
+    if (myPlayer && !myPlayer.country) {
+      openCountryPickerModal();
+    }
+  }
+
+  function openCountryPickerModal() {
+    const modal = document.getElementById('modal-country-select');
+    const grid = document.getElementById('country-cards-grid');
+    if (!modal || !grid) return;
+
+    const takenCountries = Object.values(roomState?.players || {}).map(p => p.country).filter(Boolean);
+
+    grid.innerHTML = Object.entries(countriesData).map(([name, data]) => {
+      const isTaken = takenCountries.includes(name);
+      return `
+        <div class="country-card ${isTaken ? 'taken' : ''}" style="border-top-color: ${data.color}">
+          <div class="country-header">
+            <h4>${name}</h4>
+            <span class="difficulty-tag ${data.difficulty?.toLowerCase()}">${data.difficulty}</span>
+          </div>
+          <div class="country-stats">
+            <div><span>Starting Treasury:</span> <strong>$${data.startMoney}</strong></div>
+            <div><span>Manpower Pool:</span> <strong>${data.startManpower} 👥</strong></div>
+            <div><span>Core Cities:</span> <small>${data.cities.slice(0, 3).join(', ')}${data.cities.length > 3 ? '...' : ''}</small></div>
+          </div>
+          <button class="btn-claim-nation" data-country="${name}" ${isTaken ? 'disabled' : ''}>
+            ${isTaken ? 'CLAIMED' : 'CHOOSE NATION'}
+          </button>
+        </div>
+      `;
+    }).join('');
+
+    // Attach click handlers
+    grid.querySelectorAll('.btn-claim-nation').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const country = e.currentTarget.getAttribute('data-country');
+        if (country) {
+          socket?.emit('select-country', { country });
+          closeModal('modal-country-select');
+        }
+      });
+    });
+
+    modal.style.display = 'flex';
+  }
+
+  // ─── City Drawer ────────────────────────────────────────────────────────────
+  function renderCityDrawer(city) {
+    selectedCityObj = city;
+    const drawer = document.getElementById('city-drawer');
+    if (!drawer) return;
+
+    const isMine = city.owner === myPlayerId;
+    const ownerPlayer = city.owner ? roomState?.players?.[city.owner] : null;
+
+    // Header info
+    document.getElementById('drawer-city-name').textContent = city.name.toUpperCase();
+    document.getElementById('drawer-city-sub').textContent = `${city.isCapital ? '⭐ Capital of ' : ''}${city.country}`;
+    document.getElementById('drawer-garrison-count').textContent = city.armies;
+
+    const ownedContent = document.getElementById('drawer-owned-content');
+    const hostileContent = document.getElementById('drawer-hostile-content');
+
+    if (isMine) {
+      ownedContent.style.display = 'block';
+      hostileContent.style.display = 'none';
+
+      // Upgrade Levels & Costs
+      const myPlayer = roomState?.players?.[myPlayerId];
+      const hasDiscount = myPlayer?.techs?.includes('industrialization');
+      const discountMult = hasDiscount ? 0.75 : 1.0;
+
+      const mLevel = city.levelMarket || 0;
+      const bLevel = city.levelBarracks || 0;
+      const fLevel = city.levelFort || 0;
+
+      document.getElementById('drawer-market-level').textContent = `Level ${mLevel}/5`;
+      document.getElementById('market-cost-label').textContent = mLevel >= 5 ? 'MAX' : `$${Math.round((mLevel + 1) * 100 * discountMult)}`;
+
+      document.getElementById('drawer-barracks-level').textContent = `Level ${bLevel}/5`;
+      document.getElementById('barracks-cost-label').textContent = bLevel >= 5 ? 'MAX' : `$${Math.round((bLevel + 1) * 120 * discountMult)}`;
+
+      document.getElementById('drawer-fort-level').textContent = `Level ${fLevel}/5`;
+      document.getElementById('fort-cost-label').textContent = fLevel >= 5 ? 'MAX' : `$${Math.round((fLevel + 1) * 150 * discountMult)}`;
+
+      // Populate March Target selector with connected neighbors
+      const targetSelect = document.getElementById('march-target-select');
+      if (targetSelect) {
+        const neighbors = roomState?.connections?.[city.name] || [];
+        targetSelect.innerHTML = '<option value="">Select Target City...</option>' + neighbors.map(nName => {
+          const nCity = roomState?.cities?.[nName];
+          const nOwner = nCity?.owner ? roomState?.players?.[nCity.owner] : null;
+          const status = nCity?.owner === myPlayerId ? '🛡️ Reinforce' : (nOwner ? `⚔️ Attack (${nOwner.name})` : '⚔️ Capture');
+          return `<option value="${nName}">${nName} — ${status} [${nCity?.armies || 0} armies]</option>`;
+        }).join('');
+      }
+
+      updateRecruitCostPreview();
+    } else {
+      ownedContent.style.display = 'none';
+      hostileContent.style.display = 'block';
+
+      document.getElementById('foreign-owner-name').textContent = ownerPlayer ? `${ownerPlayer.name} (${ownerPlayer.country})` : 'Neutral Garrison';
+      document.getElementById('foreign-city-target').textContent = city.name;
+    }
+
+    drawer.style.display = 'block';
+  }
+
+  function closeCityDrawer() {
+    selectedCityObj = null;
+    EuropeMap.selectCity(null);
+    const drawer = document.getElementById('city-drawer');
+    if (drawer) drawer.style.display = 'none';
+  }
+
+  function updateRecruitCostPreview() {
+    const input = document.getElementById('recruit-amount-input');
+    const label = document.getElementById('recruit-cost-preview');
+    if (!input || !label) return;
+    const count = parseInt(input.value) || 10;
+    label.textContent = `Cost: $${count * 2} | ${count} 👥`;
+  }
+
+  function marchTroops(fromCity, toCity, count) {
+    if (!fromCity || !toCity || count <= 0) return;
+    const fromObj = roomState?.cities?.[fromCity];
+    if (!fromObj || fromObj.armies <= count) {
+      showToast(`Cannot march all troops! At least 1 troop must remain to hold ${fromCity}.`);
+      return;
+    }
+
+    socket?.emit('march-armies', { fromCity, toCity, count });
+    showToast(`⚔️ March ordered: ${count} troops advancing on ${toCity}!`);
+  }
+
+  // ─── Technology Tree ────────────────────────────────────────────────────────
+  function openTechTreeModal() {
+    const modal = document.getElementById('modal-tech-tree');
+    const milList = document.getElementById('tech-military-list');
+    const ecoList = document.getElementById('tech-economic-list');
+    if (!modal || !milList || !ecoList) return;
+
+    const myPlayer = roomState?.players?.[myPlayerId];
+    const researched = myPlayer?.techs || [];
+
+    const renderTechItem = (t) => {
+      const isDone = researched.includes(t.id);
+      const canUnlock = !isDone && (!t.req || researched.includes(t.req));
+      return `
+        <div class="tech-card ${isDone ? 'researched' : (canUnlock ? 'available' : 'locked')}">
+          <div class="tech-icon">${t.icon}</div>
+          <div class="tech-details">
+            <h5>${t.name}</h5>
+            <p>${t.desc}</p>
+            ${t.req ? `<small class="tech-req">Prereq: ${t.req}</small>` : ''}
+          </div>
+          <button class="btn-research" data-tech="${t.id}" ${!canUnlock || isDone ? 'disabled' : ''}>
+            ${isDone ? '✓ MASTERED' : (canUnlock ? `RESEARCH ($${t.cost})` : 'LOCKED')}
+          </button>
+        </div>
+      `;
+    };
+
+    milList.innerHTML = (techsData.military || []).map(renderTechItem).join('');
+    ecoList.innerHTML = (techsData.economic || []).map(renderTechItem).join('');
+
+    // Attach research handlers
+    modal.querySelectorAll('.btn-research').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const techId = e.currentTarget.getAttribute('data-tech');
+        if (techId) {
+          socket?.emit('research-tech', { techId });
+          setTimeout(openTechTreeModal, 200); // refresh modal state
+        }
+      });
+    });
+
+    modal.style.display = 'flex';
+  }
+
+  // ─── Diplomacy & Alliances ──────────────────────────────────────────────────
+  function openDiplomacyModal() {
+    const modal = document.getElementById('modal-diplomacy');
+    const list = document.getElementById('diplomacy-players-list');
+    if (!modal || !list) return;
+
+    const otherPlayers = Object.values(roomState?.players || {}).filter(p => p.id !== myPlayerId);
+
+    if (otherPlayers.length === 0) {
+      list.innerHTML = '<div class="empty-msg">No other commanders present in this theater.</div>';
+    } else {
+      list.innerHTML = otherPlayers.map(p => {
+        const isAlly = (roomState?.diplomacy?.alliances || []).some(pair =>
+          (pair[0] === myPlayerId && pair[1] === p.id) || (pair[0] === p.id && pair[1] === myPlayerId)
+        );
+
+        return `
+          <div class="diplomacy-card">
+            <div class="diplo-identity">
+              <div class="faction-dot" style="background:${p.color}"></div>
+              <div>
+                <strong>${p.name}</strong>
+                <span>${p.country || 'Unknown Sovereign'}</span>
+              </div>
+            </div>
+            <div class="diplo-status ${isAlly ? 'ally' : 'neutral'}">
+              ${isAlly ? '🤝 ALLIED' : '⚔️ SOVEREIGN'}
+            </div>
+            <div class="diplo-actions">
+              ${isAlly ? `
+                <button class="btn-diplo break" data-action="break" data-target="${p.id}">Break Alliance</button>
+              ` : `
+                <button class="btn-diplo ally" data-action="ally" data-target="${p.id}">Propose Alliance</button>
+              `}
+              <button class="btn-diplo aid" data-action="aid" data-target="${p.id}">Send $50 Aid</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      list.querySelectorAll('.btn-diplo').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const action = e.currentTarget.getAttribute('data-action');
+          const targetId = e.currentTarget.getAttribute('data-target');
+          if (action === 'ally') {
+            socket?.emit('propose-alliance', { targetId });
+          } else if (action === 'break') {
+            socket?.emit('break-alliance', { targetId });
+          } else if (action === 'aid') {
+            socket?.emit('send-aid', { targetId, amount: 50 });
+          }
+          setTimeout(openDiplomacyModal, 200);
+        });
+      });
+    }
+
+    modal.style.display = 'flex';
+  }
+
+  // ─── Formable Historical Empires ────────────────────────────────────────────
+  function openFormablesModal() {
+    const modal = document.getElementById('modal-formables');
+    const grid = document.getElementById('formables-cards-grid');
+    if (!modal || !grid) return;
+
+    const myPlayer = roomState?.players?.[myPlayerId];
+    const claimedFormables = myPlayer?.formables || [];
+
+    grid.innerHTML = Object.entries(formablesData).map(([fId, data]) => {
+      const isClaimed = claimedFormables.includes(fId);
+
+      // Check which cities are owned
+      const cityChecks = data.cities.map(cName => {
+        const city = roomState?.cities?.[cName];
+        const owned = city && city.owner === myPlayerId;
+        return `<span class="city-pill ${owned ? 'owned' : 'missing'}">${owned ? '✓' : '✗'} ${cName}</span>`;
+      }).join(' ');
+
+      const canClaim = !isClaimed && data.cities.every(cName => {
+        const city = roomState?.cities?.[cName];
+        return city && city.owner === myPlayerId;
+      });
+
+      return `
+        <div class="formable-card ${isClaimed ? 'claimed' : (canClaim ? 'ready' : '')}">
+          <div class="formable-header">
+            <span class="f-icon">${data.icon}</span>
+            <div>
+              <h4>${data.name}</h4>
+              <p>${data.description}</p>
+            </div>
+          </div>
+          <div class="required-cities-box">
+            <label>Required Strategic Centers:</label>
+            <div class="city-pills-row">${cityChecks}</div>
+          </div>
+          <div class="formable-footer">
+            <small class="rewards">Reward: +$${data.reward?.money} | +${data.reward?.manpower}👥 | +$${data.reward?.incomeBonus}/tick</small>
+            <button class="btn-claim-empire" data-formable="${fId}" ${!canClaim ? 'disabled' : ''}>
+              ${isClaimed ? '👑 FORMED' : (canClaim ? 'PROCLAIM EMPIRE' : 'REQUIREMENTS UNMET')}
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    grid.querySelectorAll('.btn-claim-empire').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const formableId = e.currentTarget.getAttribute('data-formable');
+        if (formableId) {
+          socket?.emit('claim-formable', { formableId });
+          closeModal('modal-formables');
+        }
+      });
+    });
+
+    modal.style.display = 'flex';
+  }
+
+  // ─── Modals, Screens, & Alerts ──────────────────────────────────────────────
   function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    const target = document.getElementById(screenId);
-    if (target) target.classList.add('active');
+    document.getElementById(screenId)?.classList.add('active');
   }
 
   function openModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) modal.style.display = 'flex';
+    const el = document.getElementById(modalId);
+    if (el) el.style.display = 'flex';
   }
 
   function closeModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) modal.style.display = 'none';
+    const el = document.getElementById(modalId);
+    if (el) el.style.display = 'none';
   }
 
   function closeAllModals() {
-    document.querySelectorAll('.tactical-modal-backdrop').forEach(m => m.style.display = 'none');
+    document.querySelectorAll('.clean-modal-backdrop').forEach(m => m.style.display = 'none');
   }
 
-  // ─── Game Creation & Joining ─────────────────────────────────────────
-  function createGame(roomName, maxPlayers, commanderName, mode) {
-    playerName = commanderName;
-    isBotGame = (mode === 'bots');
-
-    if (isBotGame || !socket || !socket.connected) {
-      // Initialize Local AI Grand-Strategy Campaign
-      startLocalCampaign(roomName, maxPlayers, commanderName);
-      return;
-    }
-
-    socket.emit('create-room', { name: roomName, maxPlayers, playerName: commanderName }, (res) => {
-      if (res && res.success) {
-        openWaitingCouncil(res.roomId, roomName, true);
-      }
-    });
+  function showToast(message) {
+    const toast = document.getElementById('toast-notification');
+    if (!toast) return;
+    toast.textContent = message;
+    toast.style.display = 'block';
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => {
+      toast.style.display = 'none';
+    }, 3500);
   }
 
-  function joinGame(roomId, commanderName) {
-    playerName = commanderName;
+  function triggerCombatClashModal(result) {
+    const modal = document.getElementById('tactical-combat-modal');
+    if (!modal) return;
 
-    if (!socket || !socket.connected) {
-      // Start local room
-      startLocalCampaign('Operation ' + roomId, 4, commanderName);
-      return;
-    }
+    document.getElementById('clash-atk-name').textContent = result.attackerName;
+    document.getElementById('clash-atk-armies').textContent = `${result.attackerArmies} troops (${result.attackerSurvived} survived)`;
 
-    socket.emit('join-room', { roomId, playerName: commanderName }, (res) => {
-      if (res && res.success) {
-        openWaitingCouncil(roomId, 'Operation Theater', false);
-      } else {
-        alert(res?.error || 'Unable to join operation theater. Launching local campaign...');
-        startLocalCampaign('Operation Overlord', 4, commanderName);
-      }
-    });
+    document.getElementById('clash-def-name').textContent = result.defenderName;
+    document.getElementById('clash-def-armies').textContent = `${result.defenderArmies} troops (${result.defenderSurvived} survived)`;
+
+    const outcomeEl = document.getElementById('clash-outcome-text');
+    outcomeEl.textContent = result.conquered
+      ? `💥 ${result.toCity.toUpperCase()} CAPTURED!`
+      : `🛡️ DEFENDERS HELD ${result.toCity.toUpperCase()}!`;
+    outcomeEl.style.color = result.conquered ? '#ffd700' : '#38bdf8';
+
+    modal.style.display = 'flex';
+    setTimeout(() => {
+      modal.style.display = 'none';
+    }, 2800);
   }
 
-  function openWaitingCouncil(roomId, roomName, isHost) {
-    closeAllModals();
-    openModal('modal-waiting-room');
-
-    document.getElementById('waiting-room-title').textContent = `OPERATION: ${roomName.toUpperCase()}`;
-    const shareInput = document.getElementById('room-share-link');
-    if (shareInput) {
-      shareInput.value = `${window.location.origin}?room=${roomId}`;
-    }
-
-    const startBtn = document.getElementById('btn-launch-game');
-    if (startBtn) {
-      startBtn.style.display = isHost ? 'inline-flex' : 'none';
-    }
-
-    updateWaitingPlayersGrid();
-  }
-
-  function updateWaitingPlayersGrid() {
-    const grid = document.getElementById('waiting-commanders-grid');
-    if (!grid) return;
-
-    if (roomState?.players) {
-      grid.innerHTML = Object.values(roomState.players).map(p => `
-        <div class="waiting-commander-card ${p.id === socket?.id ? 'me' : ''} ${p.id === roomState.hostId ? 'host' : ''}">
-          <span style="color: ${FACTION_COLORS[p.colorIndex % FACTION_COLORS.length]}">●</span>
-          <span class="name">${escapeHtml(p.name)}</span>
-          ${p.id === roomState.hostId ? '<span class="host-crown">👑 HOST</span>' : ''}
-        </div>
-      `).join('');
-    } else {
-      grid.innerHTML = `
-        <div class="waiting-commander-card me host">
-          <span style="color: #00f0ff">●</span>
-          <span class="name">${escapeHtml(playerName)}</span>
-          <span class="host-crown">👑 HOST</span>
-        </div>
-        <div class="waiting-commander-card">
-          <span style="color: #ef4444">●</span>
-          <span class="name">Allied Commander (Waiting...)</span>
-        </div>
-      `;
-    }
+  function triggerVictoryBanner(winnerName, country, isMe) {
+    const modal = document.getElementById('tactical-victory-modal');
+    if (!modal) return;
+    document.getElementById('victory-winner-announcement').textContent = isMe
+      ? `Congratulations! You have unified the European continent under your supreme sovereignty!`
+      : `${winnerName} (${country}) has conquered all opposition and united Europe!`;
+    modal.style.display = 'flex';
   }
 
   function renderLobbyRooms(rooms) {
@@ -168,511 +644,71 @@ const Game = (() => {
     if (!list) return;
 
     if (!rooms || rooms.length === 0) {
-      list.innerHTML = `<p style="color:#94a3b8; font-size:12px; text-align:center; padding:16px;">No active multiplayer theaters. Launch one with "CREATE GAME"!</p>`;
+      list.innerHTML = '<div class="no-rooms-msg">No active theaters. Create one to begin conquest!</div>';
       return;
     }
 
     list.innerHTML = rooms.map(r => `
-      <div class="modal-room-item" data-id="${r.id}">
-        <div>
-          <div style="font-weight:700; color:#fff;">${escapeHtml(r.name)}</div>
-          <div style="font-size:10px; color:#94a3b8;">${r.players}/${r.maxPlayers} Commanders • Status: ${r.state.toUpperCase()}</div>
+      <div class="room-row-item">
+        <div class="room-info">
+          <strong>${r.name}</strong>
+          <small>${r.players} / ${r.maxPlayers} Commanders • ${r.state.toUpperCase()}</small>
         </div>
-        <button class="tactical-btn glow-cyan" style="padding:6px 14px; font-size:10px;" onclick="Game.joinGame('${r.id}', document.getElementById('join-player-name').value)">ENTER</button>
+        <button class="btn-join-room-act" data-room="${r.id}">JOIN</button>
       </div>
     `).join('');
-  }
 
-  // ─── Local Campaign Mode (Fallback & Bot Play) ────────────────────────
-  function startLocalCampaign(roomName, totalPlayers, commanderName) {
-    isBotGame = true;
-    const countries = Object.keys(EuropeMap.getNodes());
-    const factions = [commanderName, 'Kaiser Recon (AI)', 'General Zhukov (AI)', 'Vanguard Alex (AI)'].slice(0, totalPlayers);
-
-    const players = {};
-    factions.forEach((name, i) => {
-      const pid = i === 0 ? 'me' : `bot_${i}`;
-      players[pid] = { id: pid, name, colorIndex: i, isBot: i > 0, alive: true };
-    });
-
-    // Distribute countries
-    const territories = {};
-    countries.forEach((country, idx) => {
-      const ownerId = Object.keys(players)[idx % factions.length];
-      territories[country] = {
-        owner: ownerId,
-        armies: Math.floor(Math.random() * 2) + 2,
-      };
-    });
-
-    const turnOrder = Object.keys(players);
-
-    roomState = {
-      id: 'local_campaign',
-      name: roomName,
-      players,
-      territories,
-      turnOrder,
-      currentTurnIndex: 0,
-      currentPlayer: turnOrder[0],
-      phase: 'reinforce',
-      reinforcementsLeft: 5,
-      adjacency: getAdjacencyMap(),
-    };
-
-    closeAllModals();
-    showScreen('game-screen');
-    updateTacticalHUD();
-    EuropeMap.setGameState(roomState);
-  }
-
-  function getAdjacencyMap() {
-    return {
-      'Albania': ['Greece', 'Montenegro', 'Serbia'],
-      'Austria': ['Germany', 'Switzerland', 'Italy', 'Hungary', 'Czechia', 'Slovakia'],
-      'Belgium': ['France', 'Netherlands', 'Germany'],
-      'Bosnia and Herzegovina': ['Croatia', 'Serbia'],
-      'Bulgaria': ['Romania', 'Serbia', 'Greece', 'Turkey'],
-      'Belarus': ['Poland', 'Lithuania', 'Latvia', 'Russia', 'Ukraine'],
-      'Croatia': ['Hungary', 'Serbia', 'Bosnia and Herzegovina'],
-      'Czechia': ['Germany', 'Poland', 'Slovakia', 'Austria'],
-      'Denmark': ['Germany', 'Sweden', 'Norway'],
-      'Estonia': ['Latvia', 'Finland', 'Russia'],
-      'Finland': ['Norway', 'Sweden', 'Russia', 'Estonia'],
-      'France': ['Spain', 'Belgium', 'Germany', 'Switzerland', 'Italy', 'United Kingdom'],
-      'Germany': ['France', 'Belgium', 'Netherlands', 'Switzerland', 'Austria', 'Czechia', 'Poland', 'Denmark'],
-      'Greece': ['Albania', 'Bulgaria', 'Turkey'],
-      'Hungary': ['Austria', 'Slovakia', 'Ukraine', 'Romania', 'Serbia', 'Croatia'],
-      'Iceland': ['United Kingdom', 'Norway'],
-      'Ireland': ['United Kingdom'],
-      'Italy': ['France', 'Switzerland', 'Austria'],
-      'Latvia': ['Estonia', 'Lithuania', 'Russia', 'Belarus'],
-      'Lithuania': ['Latvia', 'Poland', 'Belarus', 'Russia'],
-      'Norway': ['Sweden', 'Finland', 'Russia', 'Denmark', 'Iceland'],
-      'Poland': ['Germany', 'Czechia', 'Slovakia', 'Ukraine', 'Belarus', 'Lithuania', 'Russia'],
-      'Portugal': ['Spain'],
-      'Romania': ['Hungary', 'Ukraine', 'Bulgaria', 'Serbia'],
-      'Russia': ['Norway', 'Finland', 'Estonia', 'Latvia', 'Lithuania', 'Poland', 'Belarus', 'Ukraine'],
-      'Serbia': ['Hungary', 'Romania', 'Bulgaria', 'Albania', 'Bosnia and Herzegovina', 'Croatia'],
-      'Slovakia': ['Czechia', 'Poland', 'Ukraine', 'Hungary', 'Austria'],
-      'Spain': ['Portugal', 'France'],
-      'Sweden': ['Norway', 'Finland', 'Denmark'],
-      'Switzerland': ['France', 'Germany', 'Austria', 'Italy'],
-      'Turkey': ['Bulgaria', 'Greece'],
-      'Ukraine': ['Poland', 'Slovakia', 'Hungary', 'Romania', 'Belarus', 'Russia'],
-      'United Kingdom': ['Ireland', 'France', 'Netherlands', 'Iceland', 'Norway'],
-    };
-  }
-
-  // ─── Tactical Map Interaction ─────────────────────────────────────────
-  function handleCountryClick(country) {
-    if (!roomState) return;
-    const isMyTurn = isBotGame
-      ? roomState.currentPlayer === 'me'
-      : roomState.currentPlayer === socket?.id;
-
-    if (!isMyTurn) return;
-
-    const myId = isBotGame ? 'me' : socket?.id;
-    const territory = roomState.territories[country];
-    if (!territory) return;
-
-    // 1. REINFORCE PHASE
-    if (roomState.phase === 'reinforce') {
-      if (territory.owner === myId && roomState.reinforcementsLeft > 0) {
-        territory.armies++;
-        roomState.reinforcementsLeft--;
-        if (!isBotGame && socket) {
-          socket.emit('place-reinforcement', { country });
-        }
-        updateTacticalHUD();
-        EuropeMap.setSelected(country);
-        setTimeout(() => EuropeMap.clearSelection(), 300);
-      }
-    }
-    // 2. ATTACK PHASE
-    else if (roomState.phase === 'attack') {
-      if (!selectedFrom) {
-        if (territory.owner === myId && territory.armies >= 2) {
-          selectedFrom = country;
-          EuropeMap.setSelected(country);
-        }
-      } else {
-        if (country === selectedFrom) {
-          selectedFrom = null;
-          EuropeMap.clearSelection();
-        } else if (territory.owner === myId) {
-          selectedFrom = country;
-          EuropeMap.setSelected(country);
-        } else {
-          // Check adjacency
-          const adj = roomState.adjacency[selectedFrom] || [];
-          if (adj.includes(country)) {
-            EuropeMap.setTarget(country);
-            executeAttack(selectedFrom, country);
+    list.querySelectorAll('.btn-join-room-act').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const roomId = e.currentTarget.getAttribute('data-room');
+        const pName = document.getElementById('join-player-name')?.value || 'Commander';
+        socket?.emit('join-room', { roomId, playerName: pName }, (res) => {
+          if (res?.success) {
+            closeModal('modal-join-game');
+            openWaitingRoom(roomId, 'Strategic Room', false);
+          } else {
+            showToast(res?.error || 'Failed to join');
           }
-        }
-      }
-    }
-    // 3. FORTIFY PHASE
-    else if (roomState.phase === 'fortify') {
-      if (!selectedFrom) {
-        if (territory.owner === myId && territory.armies >= 2) {
-          selectedFrom = country;
-          EuropeMap.setSelected(country);
-        }
-      } else {
-        if (country === selectedFrom) {
-          selectedFrom = null;
-          EuropeMap.clearSelection();
-        } else if (territory.owner === myId) {
-          const adj = roomState.adjacency[selectedFrom] || [];
-          if (adj.includes(country)) {
-            const fromT = roomState.territories[selectedFrom];
-            const moving = Math.floor(fromT.armies / 2);
-            fromT.armies -= moving;
-            territory.armies += moving;
-            selectedFrom = null;
-            EuropeMap.clearSelection();
-            advancePhase();
-          }
-        }
-      }
-    }
-  }
-
-  function executeAttack(fromCountry, toCountry) {
-    if (!isBotGame && socket?.connected) {
-      socket.emit('attack', { from: fromCountry, to: toCountry });
-      return;
-    }
-
-    // Local Combat Resolution
-    const fromT = roomState.territories[fromCountry];
-    const toT = roomState.territories[toCountry];
-
-    const atkDice = rollDice(Math.min(3, fromT.armies - 1));
-    const defDice = rollDice(Math.min(2, toT.armies));
-
-    let atkLoss = 0;
-    let defLoss = 0;
-    const comparisons = Math.min(atkDice.length, defDice.length);
-
-    for (let i = 0; i < comparisons; i++) {
-      if (atkDice[i] > defDice[i]) {
-        defLoss++;
-      } else {
-        atkLoss++;
-      }
-    }
-
-    fromT.armies -= atkLoss;
-    toT.armies -= defLoss;
-
-    let conquered = false;
-    if (toT.armies <= 0) {
-      conquered = true;
-      const move = Math.max(1, fromT.armies - 1);
-      toT.owner = fromT.owner;
-      toT.armies = move;
-      fromT.armies -= move;
-    }
-
-    const result = {
-      from: fromCountry,
-      to: toCountry,
-      atkDice,
-      defDice,
-      atkLoss,
-      defLoss,
-      conquered,
-      attackerName: roomState.players[fromT.owner]?.name || 'Attacker',
-      defenderName: roomState.players[toT.owner]?.name || 'Defender',
-    };
-
-    triggerCombatClashModal(result);
-    appendBattleIntel(result);
-    updateTacticalHUD();
-
-    // Check Victory
-    const owners = new Set(Object.values(roomState.territories).map(t => t.owner));
-    if (owners.size === 1) {
-      triggerVictoryBanner(result.attackerName, fromT.owner === 'me');
-    }
-  }
-
-  function rollDice(count) {
-    return Array.from({ length: count }, () => Math.floor(Math.random() * 6) + 1).sort((a, b) => b - a);
-  }
-
-  function advancePhase() {
-    if (!roomState) return;
-
-    if (!isBotGame && socket?.connected) {
-      socket.emit('end-phase');
-      selectedFrom = null;
-      EuropeMap.clearSelection();
-      return;
-    }
-
-    selectedFrom = null;
-    EuropeMap.clearSelection();
-
-    if (roomState.phase === 'reinforce') {
-      roomState.phase = 'attack';
-    } else if (roomState.phase === 'attack') {
-      roomState.phase = 'fortify';
-    } else if (roomState.phase === 'fortify') {
-      // Advance to next commander
-      roomState.currentTurnIndex = (roomState.currentTurnIndex + 1) % roomState.turnOrder.length;
-      roomState.currentPlayer = roomState.turnOrder[roomState.currentTurnIndex];
-      roomState.phase = 'reinforce';
-      roomState.reinforcementsLeft = Math.max(3, Math.floor(
-        Object.values(roomState.territories).filter(t => t.owner === roomState.currentPlayer).length / 3
-      ));
-
-      // If Next is Bot, trigger Bot Turn
-      if (roomState.players[roomState.currentPlayer]?.isBot) {
-        setTimeout(runBotTurn, 1000);
-      }
-    }
-    updateTacticalHUD();
-  }
-
-  function runBotTurn() {
-    if (!roomState || !roomState.players[roomState.currentPlayer]?.isBot) return;
-
-    const botId = roomState.currentPlayer;
-    // 1. Bot Reinforce
-    const botCountries = Object.entries(roomState.territories)
-      .filter(([, t]) => t.owner === botId)
-      .map(([name]) => name);
-
-    if (botCountries.length > 0) {
-      const target = botCountries[Math.floor(Math.random() * botCountries.length)];
-      roomState.territories[target].armies += roomState.reinforcementsLeft;
-      roomState.reinforcementsLeft = 0;
-    }
-
-    // 2. Bot Attack
-    for (const c of botCountries) {
-      const armies = roomState.territories[c].armies;
-      if (armies >= 3) {
-        const neighbors = roomState.adjacency[c] || [];
-        const enemyNeighbors = neighbors.filter(n => roomState.territories[n]?.owner !== botId);
-        if (enemyNeighbors.length > 0) {
-          const target = enemyNeighbors[0];
-          executeAttack(c, target);
-          break;
-        }
-      }
-    }
-
-    setTimeout(advancePhase, 1200);
-  }
-
-  // ─── HUD & Battle Intel ──────────────────────────────────────────────
-  function updateTacticalHUD() {
-    if (!roomState) return;
-
-    const currentP = roomState.players[roomState.currentPlayer];
-    const nameEl = document.getElementById('hud-commander-name');
-    if (nameEl && currentP) {
-      nameEl.textContent = currentP.name;
-      nameEl.style.color = FACTION_COLORS[currentP.colorIndex % FACTION_COLORS.length];
-    }
-
-    const phaseEl = document.getElementById('hud-turn-phase');
-    if (phaseEl) {
-      phaseEl.textContent = roomState.phase.toUpperCase();
-      phaseEl.className = 'hud-phase-pill ' + roomState.phase;
-    }
-
-    const isMyTurn = isBotGame
-      ? roomState.currentPlayer === 'me'
-      : roomState.currentPlayer === socket?.id;
-
-    const rfBox = document.getElementById('reinforce-hud-box');
-    const rfCount = document.getElementById('hud-reinforce-count');
-    if (rfBox && rfCount) {
-      if (roomState.phase === 'reinforce' && isMyTurn) {
-        rfBox.style.display = 'flex';
-        rfCount.textContent = roomState.reinforcementsLeft;
-      } else {
-        rfBox.style.display = 'none';
-      }
-    }
-
-    const endBtn = document.getElementById('btn-end-phase');
-    if (endBtn) {
-      endBtn.style.display = isMyTurn ? 'inline-flex' : 'none';
-      endBtn.textContent = roomState.phase === 'reinforce' ? 'ATTACK PHASE ❯' :
-                           roomState.phase === 'attack' ? 'FORTIFY PHASE ❯' : 'END TURN ❯';
-    }
-
-    renderFactionsIntel();
-  }
-
-  function renderFactionsIntel() {
-    const list = document.getElementById('intel-factions-list');
-    if (!list || !roomState) return;
-
-    const territoryCounts = {};
-    Object.values(roomState.territories).forEach(t => {
-      if (t.owner) {
-        territoryCounts[t.owner] = (territoryCounts[t.owner] || 0) + 1;
-      }
-    });
-
-    list.innerHTML = roomState.turnOrder.map(pid => {
-      const p = roomState.players[pid];
-      if (!p) return '';
-      const count = territoryCounts[pid] || 0;
-      const isCurrent = pid === roomState.currentPlayer;
-      const color = FACTION_COLORS[p.colorIndex % FACTION_COLORS.length];
-
-      return `
-        <div class="faction-item ${isCurrent ? 'active' : ''} ${count === 0 ? 'eliminated' : ''}">
-          <span class="faction-dot" style="background: ${color}; box-shadow: 0 0 8px ${color}"></span>
-          <span>${escapeHtml(p.name)}</span>
-          <span class="faction-count">${count} 🏴</span>
-        </div>
-      `;
-    }).join('');
-  }
-
-  function handleCountryHover(country, sx, sy) {
-    const tooltip = document.getElementById('tactical-country-tooltip');
-    if (!tooltip) return;
-
-    if (!country || !roomState) {
-      tooltip.style.display = 'none';
-      return;
-    }
-
-    const territory = roomState.territories[country];
-    const ownerPlayer = territory ? roomState.players[territory.owner] : null;
-
-    document.getElementById('tip-country-name').textContent = country.toUpperCase();
-    document.getElementById('tip-country-owner').textContent = ownerPlayer ? ownerPlayer.name : 'Neutral Forces';
-    document.getElementById('tip-country-armies').textContent = `${territory ? territory.armies : 0} Armies`;
-
-    tooltip.style.display = 'block';
-    tooltip.style.left = (sx + 18) + 'px';
-    tooltip.style.top = (sy - 15) + 'px';
-
-    const rect = tooltip.getBoundingClientRect();
-    if (rect.right > window.innerWidth) {
-      tooltip.style.left = (sx - rect.width - 18) + 'px';
-    }
-  }
-
-  // ─── Combat & Victory Overlays ───────────────────────────────────────
-  function triggerCombatClashModal(result) {
-    const modal = document.getElementById('tactical-combat-modal');
-    if (!modal) return;
-
-    document.getElementById('clash-atk-name').textContent = result.from.toUpperCase();
-    document.getElementById('clash-def-name').textContent = result.to.toUpperCase();
-
-    const atkDiceBox = document.getElementById('clash-atk-dice');
-    const defDiceBox = document.getElementById('clash-def-dice');
-
-    atkDiceBox.innerHTML = result.atkDice.map(d => `<div class="tactical-die atk">🎲${d}</div>`).join('');
-    defDiceBox.innerHTML = result.defDice.map(d => `<div class="tactical-die def">🎲${d}</div>`).join('');
-
-    const outcome = document.getElementById('clash-outcome-text');
-    if (result.conquered) {
-      outcome.textContent = `🏴 ${result.to.toUpperCase()} CONQUERED!`;
-      outcome.style.color = '#ffd700';
-    } else {
-      outcome.textContent = `CASUALTIES: ATK -${result.atkLoss} | DEF -${result.defLoss}`;
-      outcome.style.color = '#94a3b8';
-    }
-
-    modal.style.display = 'flex';
-    setTimeout(() => { modal.style.display = 'none'; }, 2200);
-  }
-
-  function appendBattleIntel(result) {
-    const log = document.getElementById('intel-battle-log');
-    if (!log) return;
-
-    const entry = document.createElement('div');
-    entry.className = `intel-msg ${result.conquered ? 'conquest' : 'clash'}`;
-    const time = new Date().toTimeString().slice(0, 5);
-
-    entry.innerHTML = `
-      <span class="time">[${time}]</span> <strong>${escapeHtml(result.from)}</strong> attacked <strong>${escapeHtml(result.to)}</strong><br/>
-      ${result.conquered
-        ? '<span style="color:#10f070; font-weight:800;">★ Territory Subjugated!</span>'
-        : `<span>Losses: Attacker -${result.atkLoss} / Defender -${result.defLoss}</span>`
-      }
-    `;
-
-    log.insertBefore(entry, log.firstChild);
-  }
-
-  function appendCommsMessage(msg) {
-    const log = document.getElementById('intel-battle-log');
-    if (!log) return;
-
-    const entry = document.createElement('div');
-    entry.className = 'intel-msg';
-    entry.innerHTML = `<strong style="color:${FACTION_COLORS[msg.colorIndex % FACTION_COLORS.length]}">${escapeHtml(msg.playerName)}:</strong> ${escapeHtml(msg.message)}`;
-    log.insertBefore(entry, log.firstChild);
-  }
-
-  function sendComms(text) {
-    if (!text || !text.trim()) return;
-    if (socket?.connected) {
-      socket.emit('send-chat', { message: text.trim() });
-    } else {
-      appendCommsMessage({
-        playerName,
-        colorIndex: 0,
-        message: text.trim(),
+        });
       });
-    }
+    });
   }
 
-  function triggerVictoryBanner(winnerName, isMe) {
-    const modal = document.getElementById('tactical-victory-modal');
+  function openWaitingRoom(roomId, roomName, isHost) {
+    const modal = document.getElementById('modal-waiting-room');
     if (!modal) return;
+    document.getElementById('waiting-room-title').textContent = roomName;
+    document.getElementById('room-share-link').value = window.location.origin + '?room=' + roomId;
 
-    document.getElementById('victory-winner-announcement').textContent = isMe
-      ? 'You have subjugated all rival European powers and forged an empire!'
-      : `${winnerName} has conquered all of Europe!`;
+    const startBtn = document.getElementById('btn-launch-game');
+    if (startBtn) {
+      startBtn.style.display = isHost ? 'inline-block' : 'none';
+      startBtn.onclick = () => {
+        socket?.emit('start-game', { mode: 'online' });
+      };
+    }
+
+    const leaveBtn = document.getElementById('btn-leave-lobby');
+    if (leaveBtn) {
+      leaveBtn.onclick = () => {
+        closeModal('modal-waiting-room');
+      };
+    }
 
     modal.style.display = 'flex';
-  }
-
-  function escapeHtml(str) {
-    const d = document.createElement('div');
-    d.textContent = str || '';
-    return d.innerHTML;
-  }
-
-  function launchOnlineConquest() {
-    if (socket && socket.connected) {
-      socket.emit('start-game');
-    } else {
-      startLocalCampaign('Operation Overlord', 4, playerName);
-    }
   }
 
   return {
-    connect,
+    init,
     showScreen,
     openModal,
     closeModal,
-    createGame,
-    joinGame,
-    launchOnlineConquest,
-    handleCountryClick,
-    handleCountryHover,
-    advancePhase,
-    sendComms,
-    getRoomState: () => roomState,
+    showToast,
+    openWaitingRoom
   };
 })();
+
+document.addEventListener('DOMContentLoaded', () => {
+  EuropeMap.init('game-canvas');
+  Game.init();
+});

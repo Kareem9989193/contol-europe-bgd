@@ -1,0 +1,78 @@
+{
+  "military": [
+    {
+      "id": "advanced_weaponry",
+      "name": "Advanced Weaponry",
+      "desc": "+20% combat power",
+      "icon": "⚔️",
+      "cost": 200,
+      "effect": { "combatBonus": 0.20 },
+      "requires": []
+    },
+    {
+      "id": "mechanized_logistics",
+      "name": "Mechanized Logistics",
+      "desc": "+30% troop speed",
+      "icon": "🚛",
+      "cost": 250,
+      "effect": { "speedBonus": 0.30 },
+      "requires": ["advanced_weaponry"]
+    },
+    {
+      "id": "heavy_artillery",
+      "name": "Heavy Artillery",
+      "desc": "+40% vs fortified",
+      "icon": "💣",
+      "cost": 350,
+      "effect": { "siegeBonus": 0.40 },
+      "requires": ["mechanized_logistics"]
+    },
+    {
+      "id": "air_superiority",
+      "name": "Air Superiority",
+      "desc": "+25% combat power",
+      "icon": "✈️",
+      "cost": 400,
+      "effect": { "combatBonus": 0.25 },
+      "requires": ["heavy_artillery"]
+    }
+  ],
+  "economic": [
+    {
+      "id": "industrialization",
+      "name": "Industrialization",
+      "desc": "-25% upgrade cost",
+      "icon": "🏭",
+      "cost": 150,
+      "effect": { "upgradeCostReduction": 0.25 },
+      "requires": []
+    },
+    {
+      "id": "central_banking",
+      "name": "Central Banking",
+      "desc": "+30% tax income",
+      "icon": "🏦",
+      "cost": 200,
+      "effect": { "incomeBonus": 0.30 },
+      "requires": ["industrialization"]
+    },
+    {
+      "id": "universal_conscription",
+      "name": "Universal Conscription",
+      "desc": "+50% manpower recovery",
+      "icon": "📜",
+      "cost": 250,
+      "effect": { "manpowerBonus": 0.50 },
+      "requires": ["central_banking"]
+    },
+    {
+      "id": "war_economy",
+      "name": "War Economy",
+      "desc": "-30% recruit cost",
+      "icon": "⚙️",
+      "cost": 300,
+      "effect": { "recruitCostReduction": 0.30 },
+      "requires": ["universal_conscription"]
+    }
+  ]
+}

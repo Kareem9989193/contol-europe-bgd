@@ -1,6 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   EUROPE CONQUEST — CLEAN & CRISP STYLESHEET
-   Zero clutter, authentic graphic hotspots, sleek modals, and smooth gameplay
+   CONTROL EUROPE — GRAND STRATEGY STYLESHEET
+   Sleek dark HUD, responsive Discord Activity viewport, touch gestures,
+   City Management Drawer, Tech Tree, Diplomacy, and Formable Empires.
    ════════════════════════════════════════════════════════════════════════════ */
 
 *, *::before, *::after {
@@ -16,7 +17,7 @@
 
 :root {
   --bg-space: #030712;
-  --panel-bg: rgba(9, 14, 28, 0.92);
+  --panel-bg: rgba(9, 14, 28, 0.94);
   --accent-cyan: #00f0ff;
   --accent-lime: #10f070;
   --accent-red: #ef4444;
@@ -49,7 +50,7 @@ html, body {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   SCREEN 1: MAIN MENU (Clean image presentation + interactive hotspots)
+   SCREEN 1: MAIN MENU
    ════════════════════════════════════════════════════════════════════════════ */
 #main-menu-screen {
   background: #02040a;
@@ -72,7 +73,6 @@ html, body {
   display: block;
 }
 
-/* Clickable Hotspots positioned directly over the image's buttons */
 .art-hotspot {
   position: absolute;
   background: transparent;
@@ -83,7 +83,6 @@ html, body {
   transition: all 0.2s ease-out;
 }
 
-/* CREATE GAME button */
 .hotspot-create {
   left: 25.5%;
   bottom: 3.2%;
@@ -95,7 +94,6 @@ html, body {
   box-shadow: 0 0 25px rgba(16, 240, 112, 0.4), inset 0 0 15px rgba(16, 240, 112, 0.2);
 }
 
-/* JOIN GAME button */
 .hotspot-join {
   left: 50.8%;
   bottom: 3.2%;
@@ -108,120 +106,152 @@ html, body {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   SCREEN 2: IN-GAME TACTICAL SCREEN
+   SCREEN 2: GRAND STRATEGY GAMEPLAY SCREEN
    ════════════════════════════════════════════════════════════════════════════ */
 #game-screen {
   background: #020612;
   flex-direction: column;
 }
 
-/* Top HUD */
+/* Top Economy HUD */
 .tactical-top-hud {
-  height: 52px;
-  background: linear-gradient(180deg, rgba(6, 11, 25, 0.96) 0%, rgba(6, 11, 25, 0.8) 100%);
+  height: 56px;
+  background: linear-gradient(180deg, rgba(6, 11, 25, 0.98) 0%, rgba(6, 11, 25, 0.88) 100%);
   border-bottom: 1px solid rgba(0, 240, 255, 0.2);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+  padding: 0 14px;
   z-index: 30;
+  gap: 12px;
 }
 
-.hud-left {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-.btn-hud-hq {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
-  color: #94a3b8;
-  font-family: var(--font-orbitron);
-  font-size: 11px;
-  font-weight: 700;
-  padding: 6px 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.btn-hud-hq:hover {
-  color: #fff;
-  border-color: var(--accent-red);
-}
-.hud-title {
-  font-family: var(--font-orbitron);
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: 2px;
-  color: #fff;
-}
-
-.hud-center {
+.hud-section {
   display: flex;
   align-items: center;
   gap: 10px;
 }
-.hud-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: #94a3b8;
-}
-.hud-player-turn {
-  font-family: var(--font-orbitron);
-  font-size: 14px;
-  font-weight: 800;
-  color: var(--accent-cyan);
-}
-.hud-phase-pill {
-  font-family: var(--font-orbitron);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 1px;
-  padding: 3px 10px;
-  border-radius: 12px;
-  background: rgba(16, 240, 112, 0.15);
-  color: var(--accent-lime);
-  border: 1px solid var(--accent-lime);
-}
 
-.hud-right {
+.btn-hud-round {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #94a3b8;
+  font-size: 16px;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 14px;
+  justify-content: center;
+  transition: all 0.2s;
 }
-.reinforce-box {
+.btn-hud-round:hover {
+  color: #fff;
+  border-color: var(--accent-red);
+}
+
+.nation-badge-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hud-flag {
+  font-size: 20px;
+}
+.nation-text {
+  display: flex;
+  flex-direction: column;
+}
+.hud-name {
+  font-size: 10px;
+  color: #94a3b8;
+  font-weight: 600;
+  line-height: 1;
+}
+.hud-country {
+  font-family: var(--font-orbitron);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #38bdf8;
+  line-height: 1.2;
+}
+
+/* Economy Tickers */
+.hud-economy-metrics {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.metric-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.metric-pill.gold {
+  border-color: rgba(255, 215, 0, 0.3);
+  background: rgba(255, 215, 0, 0.06);
+}
+.metric-pill.cyan {
+  border-color: rgba(56, 189, 248, 0.3);
+  background: rgba(56, 189, 248, 0.06);
+}
+.metric-pill .icon {
+  font-size: 16px;
+}
+.metric-data {
+  display: flex;
+  flex-direction: column;
+}
+.metric-data .value {
+  font-family: var(--font-orbitron);
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.1;
+}
+.metric-data .rate {
+  font-size: 9px;
+  font-weight: 700;
+}
+.metric-pill.gold .rate { color: #facc15; }
+.metric-pill.cyan .rate { color: #38bdf8; }
+
+/* Action Navigation Buttons */
+.hud-action-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-hud-action {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 6px 12px;
+  color: #f1f5f9;
+  font-family: var(--font-orbitron);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
-  background: rgba(16, 240, 112, 0.1);
-  border: 1px solid var(--accent-lime);
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 700;
-  color: #fff;
-}
-.reinforce-box strong {
-  color: var(--accent-lime);
-  font-family: var(--font-orbitron);
-  font-size: 14px;
-}
-.btn-hud-next {
-  background: linear-gradient(135deg, var(--accent-cyan), #0284c7);
-  border: none;
-  border-radius: 6px;
-  color: #030712;
-  font-family: var(--font-orbitron);
-  font-size: 11px;
-  font-weight: 800;
-  padding: 8px 16px;
-  cursor: pointer;
-  letter-spacing: 1px;
   transition: all 0.2s;
 }
-.btn-hud-next:hover {
-  box-shadow: 0 0 15px rgba(0, 240, 255, 0.5);
-  transform: translateY(-1px);
+.btn-hud-action:hover {
+  background: rgba(0, 240, 255, 0.15);
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
+}
+.btn-hud-action.icon-only {
+  padding: 6px 10px;
 }
 
 /* Canvas Viewport */
@@ -229,56 +259,70 @@ html, body {
   flex: 1;
   position: relative;
   width: 100%;
-  height: calc(100% - 52px);
+  height: calc(100% - 56px);
   overflow: hidden;
 }
 #game-canvas {
   width: 100%;
   height: 100%;
-  cursor: crosshair;
+  display: block;
 }
 
-/* Factions Left HUD */
+/* Factions Panel */
 .factions-hud-panel {
   position: absolute;
-  top: 68px;
-  left: 16px;
-  width: 200px;
+  top: 70px;
+  left: 14px;
+  width: 220px;
+  max-width: calc(100vw - 28px);
   background: var(--panel-bg);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(0, 240, 255, 0.2);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(0, 240, 255, 0.25);
   border-radius: 10px;
-  padding: 10px;
+  padding: 8px 12px;
   z-index: 25;
+  transition: all 0.3s ease;
 }
 .factions-header {
   font-family: var(--font-orbitron);
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: 1.5px;
+  letter-spacing: 1.2px;
   color: var(--accent-cyan);
-  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  padding-bottom: 6px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  padding-bottom: 4px;
+}
+.factions-hud-panel.collapsed .factions-items {
+  display: none;
 }
 .factions-items {
+  margin-top: 6px;
+  max-height: 160px;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
-.faction-item {
+.faction-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px;
+  padding: 5px 6px;
   border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 11px;
 }
-.faction-item.active {
-  background: rgba(0, 240, 255, 0.12);
+.faction-row.is-me {
+  background: rgba(0, 240, 255, 0.1);
   border: 1px solid rgba(0, 240, 255, 0.3);
+}
+.faction-row.eliminated {
+  opacity: 0.4;
+  text-decoration: line-through;
 }
 .faction-dot {
   width: 8px;
@@ -286,53 +330,68 @@ html, body {
   border-radius: 50%;
   flex-shrink: 0;
 }
-.faction-count {
-  margin-left: auto;
-  font-size: 11px;
+.faction-meta {
+  flex: 1;
+  overflow: hidden;
+}
+.fname {
+  font-weight: 700;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fcountry {
+  font-size: 9px;
   color: #94a3b8;
+  display: block;
+}
+.faction-wealth {
+  font-family: var(--font-orbitron);
+  font-size: 10px;
+  color: #ffd700;
+  font-weight: 700;
 }
 
-/* Battle Log Right HUD */
+/* War Intel Log */
 .battle-log-hud {
   position: absolute;
-  top: 68px;
-  right: 16px;
-  width: 240px;
+  top: 70px;
+  right: 14px;
+  width: 250px;
+  max-width: calc(100vw - 28px);
   background: var(--panel-bg);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(0, 240, 255, 0.2);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(0, 240, 255, 0.25);
   border-radius: 10px;
-  padding: 10px;
+  padding: 8px 12px;
   z-index: 25;
 }
 .log-header {
   font-family: var(--font-orbitron);
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: 1.5px;
+  letter-spacing: 1.2px;
   color: var(--accent-cyan);
-  margin-bottom: 8px;
+  padding-bottom: 6px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  padding-bottom: 4px;
 }
 .log-items {
-  max-height: 180px;
+  margin-top: 6px;
+  max-height: 140px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 11px;
+  font-size: 10px;
 }
-.intel-msg {
+.log-entry {
   padding: 4px 6px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.03);
   border-left: 2px solid var(--accent-cyan);
   line-height: 1.3;
 }
-.intel-msg.clash { border-left-color: var(--accent-red); }
-.intel-msg.conquest { border-left-color: var(--accent-lime); background: rgba(16, 240, 112, 0.08); }
-.intel-msg .time { color: #64748b; font-size: 9px; }
 
 /* Tooltip */
 .tactical-tooltip {
@@ -348,102 +407,367 @@ html, body {
 }
 .tip-country-name {
   font-family: var(--font-orbitron);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   color: #fff;
   margin-bottom: 4px;
 }
 .tip-detail {
+  font-size: 10px;
+  color: #94a3b8;
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
-  color: #94a3b8;
+  gap: 8px;
 }
-.tip-detail strong.highlight {
-  color: var(--accent-lime);
+.tip-detail .highlight {
+  color: var(--accent-cyan);
+  font-weight: 700;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   CLEAN MODALS (Create, Join, Waiting, Combat, Victory)
+   CITY MANAGEMENT DRAWER (Sliding up from bottom)
    ════════════════════════════════════════════════════════════════════════════ */
-.clean-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(3, 7, 18, 0.85);
-  backdrop-filter: blur(12px);
-  z-index: 150;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: fadeIn 0.2s ease-out;
+.city-management-drawer {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(840px, 96vw);
+  background: rgba(9, 14, 28, 0.96);
+  backdrop-filter: blur(18px);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0, 240, 255, 0.15);
+  z-index: 40;
+  padding: 14px 18px;
+  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.clean-modal-box {
-  width: 90%;
-  max-width: 420px;
-  background: #080f1e;
-  border: 1px solid rgba(0, 240, 255, 0.4);
-  border-radius: 12px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 25px rgba(0, 240, 255, 0.2);
-  overflow: hidden;
+@keyframes slideUp {
+  from { opacity: 0; transform: translate(-50%, 40px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
 }
 
-.clean-modal-header {
+.drawer-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 18px;
-  background: rgba(15, 23, 42, 0.9);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 12px;
+}
+
+.city-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.city-star-icon {
+  font-size: 22px;
+}
+.city-identity h3 {
   font-family: var(--font-orbitron);
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 800;
-  letter-spacing: 1.5px;
+  color: #fff;
+  letter-spacing: 1px;
+}
+.city-identity span {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.city-garrison-badge {
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #38bdf8;
+}
+.city-garrison-badge strong {
+  font-family: var(--font-orbitron);
+  font-size: 14px;
   color: #fff;
 }
-.modal-close-x {
+
+.btn-drawer-close {
   background: transparent;
   border: none;
   color: #94a3b8;
   font-size: 16px;
   cursor: pointer;
+  padding: 4px 8px;
+  transition: color 0.2s;
 }
-.modal-close-x:hover { color: var(--accent-red); }
+.btn-drawer-close:hover {
+  color: #fff;
+}
+
+/* Upgrades Grid */
+.city-upgrades-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.upgrade-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.upgrade-card .card-icon {
+  font-size: 20px;
+}
+.upgrade-card .card-info {
+  flex: 1;
+}
+.upgrade-card .title {
+  font-family: var(--font-orbitron);
+  font-size: 11px;
+  font-weight: 700;
+  display: block;
+  color: #fff;
+}
+.upgrade-card .stat {
+  font-size: 10px;
+  color: var(--accent-cyan);
+  display: block;
+}
+.upgrade-card .benefit {
+  font-size: 9px;
+  color: #94a3b8;
+  display: block;
+}
+
+.btn-upgrade-action {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  border: 1px solid #38bdf8;
+  border-radius: 6px;
+  color: #fff;
+  font-family: var(--font-orbitron);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-upgrade-action:hover {
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+  transform: translateY(-1px);
+}
+
+/* Operations Row: Mobilization & Marching */
+.city-operations-row {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 10px;
+}
+
+.op-box {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px;
+}
+.op-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  margin-bottom: 8px;
+}
+.op-header span:first-child {
+  font-family: var(--font-orbitron);
+  color: #fff;
+}
+.cost-tag {
+  color: #ffd700;
+}
+
+.stepper-row, .march-selector-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.step-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #fff;
+  font-family: var(--font-orbitron);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+.step-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.step-input {
+  width: 55px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: #fff;
+  font-family: var(--font-orbitron);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  padding: 5px;
+}
+
+.btn-primary-compact {
+  background: linear-gradient(135deg, #10b981, #059669);
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-family: var(--font-orbitron);
+  font-size: 10px;
+  font-weight: 800;
+  padding: 7px 12px;
+  cursor: pointer;
+}
+.btn-primary-compact:hover {
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+}
+
+.btn-attack-action {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-family: var(--font-orbitron);
+  font-size: 11px;
+  font-weight: 800;
+  padding: 7px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-attack-action:hover {
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
+}
+
+.foreign-city-intel {
+  font-size: 12px;
+  color: #cbd5e1;
+  line-height: 1.5;
+  padding: 8px 4px;
+}
+.foreign-city-intel strong {
+  color: #ef4444;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CLEAN MODALS
+   ════════════════════════════════════════════════════════════════════════════ */
+.clean-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 18, 0.88);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+  padding: 16px;
+}
+
+.clean-modal-box {
+  background: #090e1c;
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-radius: 14px;
+  width: 100%;
+  max-width: 440px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 36px rgba(0, 0, 0, 0.8), 0 0 24px rgba(0, 240, 255, 0.12);
+}
+.clean-modal-box.large {
+  max-width: 760px;
+}
+
+.clean-modal-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-orbitron);
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 1px;
+}
+.modal-close-x {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 18px;
+  cursor: pointer;
+}
+.modal-close-x:hover {
+  color: #fff;
+}
 
 .clean-modal-body {
-  padding: 18px;
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
-
-.input-group {
+.clean-modal-footer {
+  padding: 12px 18px 16px;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  justify-content: flex-end;
 }
+.clean-modal-footer.dual {
+  justify-content: space-between;
+}
+
 .input-group label {
+  display: block;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 1px;
   color: #94a3b8;
-  text-transform: uppercase;
+  margin-bottom: 6px;
 }
-
-.clean-input, .clean-select {
+.clean-input {
   width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
   padding: 10px 12px;
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(0, 240, 255, 0.25);
-  border-radius: 6px;
   color: #fff;
-  font-family: inherit;
-  font-size: 13px;
-  outline: none;
-  transition: border-color 0.2s;
+  font-family: var(--font-rajdhani);
+  font-size: 14px;
+  font-weight: 600;
 }
-.clean-input:focus, .clean-select:focus {
-  border-color: var(--accent-cyan);
+.clean-select {
+  width: 100%;
+  background: #0d1527;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: #fff;
+  font-family: var(--font-rajdhani);
+  font-size: 13px;
+  font-weight: 600;
+}
+.clean-select.compact {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 11px;
 }
 
 .mode-chips-row {
@@ -452,155 +776,379 @@ html, body {
 }
 .clean-chip {
   flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
   padding: 8px 12px;
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  cursor: pointer;
   font-size: 12px;
   font-weight: 700;
-}
-.clean-chip.active {
-  border-color: var(--accent-lime);
-  background: rgba(16, 240, 112, 0.1);
-}
-
-.clean-modal-footer {
-  padding: 14px 18px;
-  background: rgba(15, 23, 42, 0.7);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-.clean-modal-footer.dual {
+  color: #94a3b8;
+  cursor: pointer;
   display: flex;
-  justify-content: space-between;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.clean-chip input { display: none; }
+.clean-chip.active {
+  border-color: var(--accent-cyan);
+  background: rgba(0, 240, 255, 0.12);
+  color: #fff;
 }
 
 .btn-action-primary {
   width: 100%;
-  padding: 12px;
-  background: linear-gradient(135deg, var(--accent-lime), #059669);
+  background: linear-gradient(135deg, var(--accent-cyan), #0284c7);
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   color: #030712;
   font-family: var(--font-orbitron);
   font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 1.5px;
+  font-weight: 800;
+  padding: 12px 20px;
   cursor: pointer;
+  letter-spacing: 1px;
   transition: all 0.2s;
 }
 .btn-action-primary:hover {
-  box-shadow: 0 0 20px rgba(16, 240, 112, 0.5);
-  transform: translateY(-1px);
+  box-shadow: 0 0 16px rgba(0, 240, 255, 0.5);
 }
 .btn-cancel {
-  padding: 10px 20px;
-  background: transparent;
-  border: 1px solid var(--accent-red);
-  color: var(--accent-red);
-  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: #fff;
   font-family: var(--font-orbitron);
   font-size: 11px;
   font-weight: 700;
+  padding: 10px 18px;
   cursor: pointer;
 }
 
-.code-join-row, .share-row {
-  display: flex;
-  gap: 8px;
+/* Country Picker Cards Grid */
+.country-picker-intro {
+  padding: 10px 18px 0;
+  font-size: 12px;
+  color: #94a3b8;
 }
-.btn-code-connect {
-  padding: 10px 16px;
-  background: var(--accent-cyan);
-  border: none;
-  border-radius: 6px;
-  color: #030712;
-  font-family: var(--font-orbitron);
-  font-size: 11px;
-  font-weight: 900;
-  cursor: pointer;
-}
-
-/* Rooms Container */
-.rooms-container {
-  max-height: 140px;
+.country-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  padding: 16px 18px;
+  max-height: 65vh;
   overflow-y: auto;
+}
+.country-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 3px solid #3b82f6;
+  border-radius: 10px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
 }
-.no-rooms-msg {
-  text-align: center;
-  color: #64748b;
+.country-card.taken {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.country-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.country-header h4 {
+  font-family: var(--font-orbitron);
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+}
+.difficulty-tag {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 8px;
+  text-transform: uppercase;
+}
+.difficulty-tag.easy { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+.difficulty-tag.medium { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+.difficulty-tag.hard { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+
+.country-stats {
+  font-size: 11px;
+  color: #cbd5e1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.country-stats small {
+  color: #94a3b8;
+}
+
+.btn-claim-nation {
+  margin-top: auto;
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-family: var(--font-orbitron);
+  font-size: 10px;
+  font-weight: 800;
+  padding: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-claim-nation:hover:not(:disabled) {
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+}
+
+/* Tech Tree */
+.tech-tree-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 16px 18px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.branch-title {
+  font-family: var(--font-orbitron);
   font-size: 12px;
-  padding: 14px;
+  font-weight: 800;
+  color: var(--accent-cyan);
+  margin-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 6px;
 }
-.modal-room-item {
+.tech-items-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.tech-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.tech-card.researched {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+}
+.tech-icon {
+  font-size: 24px;
+}
+.tech-details {
+  flex: 1;
+}
+.tech-details h5 {
+  font-family: var(--font-orbitron);
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+}
+.tech-details p {
+  font-size: 10px;
+  color: #94a3b8;
+}
+.tech-req {
+  font-size: 9px;
+  color: #f59e0b;
+  display: block;
+}
+.btn-research {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-family: var(--font-orbitron);
+  font-size: 10px;
+  font-weight: 800;
+  padding: 8px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tech-card.researched .btn-research {
+  background: transparent;
+  color: #10b981;
+  font-weight: 800;
+}
+
+/* Diplomacy */
+.diplomacy-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.diplomacy-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 10px 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(0, 240, 255, 0.15);
-  border-radius: 6px;
-  font-size: 12px;
+  gap: 10px;
 }
+.diplo-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.diplo-identity strong {
+  display: block;
+  font-size: 13px;
+}
+.diplo-identity span {
+  font-size: 10px;
+  color: #94a3b8;
+}
+.diplo-status {
+  font-family: var(--font-orbitron);
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 10px;
+}
+.diplo-status.ally { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+.diplo-status.neutral { background: rgba(148, 163, 184, 0.2); color: #94a3b8; }
+.diplo-actions {
+  display: flex;
+  gap: 6px;
+}
+.btn-diplo {
+  border: none;
+  border-radius: 6px;
+  font-family: var(--font-orbitron);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.btn-diplo.ally { background: #0284c7; color: #fff; }
+.btn-diplo.break { background: #dc2626; color: #fff; }
+.btn-diplo.aid { background: rgba(255, 215, 0, 0.2); color: #ffd700; border: 1px solid rgba(255, 215, 0, 0.4); }
 
-/* Waiting List */
-.waiting-players-list {
+/* Formables Grid */
+.formables-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+  max-height: 65vh;
+  overflow-y: auto;
+}
+.formable-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.formable-card.ready {
+  border-color: #ffd700;
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+}
+.formable-card.claimed {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+}
+.formable-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.formable-header .f-icon {
+  font-size: 26px;
+}
+.formable-header h4 {
+  font-family: var(--font-orbitron);
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+}
+.formable-header p {
+  font-size: 10px;
+  color: #94a3b8;
+}
+.required-cities-box label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  display: block;
+  margin-bottom: 4px;
+}
+.city-pills-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.city-pill {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.city-pill.owned { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+.city-pill.missing { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+
+.formable-footer {
+  margin-top: auto;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-.waiting-commander-card {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
+.formable-footer .rewards {
+  font-size: 10px;
+  color: #ffd700;
 }
-.waiting-commander-card .host-crown {
-  margin-left: auto;
-  color: var(--accent-gold);
-  font-size: 11px;
-  font-weight: 700;
+.btn-claim-empire {
+  background: linear-gradient(135deg, #ffd700, #b45309);
+  border: none;
+  border-radius: 6px;
+  color: #030712;
+  font-family: var(--font-orbitron);
+  font-size: 10px;
+  font-weight: 900;
+  padding: 8px;
+  cursor: pointer;
+}
+.btn-claim-empire:disabled {
+  background: rgba(255, 255, 255, 0.06);
+  color: #64748b;
+  cursor: not-allowed;
 }
 
-/* Combat & Victory Overlays */
+/* Combat Clash Overlay */
 .combat-overlay, .victory-overlay {
   position: fixed;
   inset: 0;
   background: rgba(3, 7, 18, 0.85);
   backdrop-filter: blur(10px);
-  z-index: 200;
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 90;
 }
 .combat-box, .victory-box {
-  width: 90%;
-  max-width: 440px;
-  background: #080f1e;
-  border: 2px solid var(--accent-red);
-  border-radius: 12px;
+  background: #090e1c;
+  border: 1px solid var(--accent-red);
+  border-radius: 14px;
   padding: 24px;
   text-align: center;
-}
-.victory-box {
-  border-color: var(--accent-gold);
+  max-width: 460px;
+  width: 90%;
+  box-shadow: 0 0 40px rgba(239, 68, 68, 0.3);
 }
 .combat-title {
   font-family: var(--font-orbitron);
   font-size: 16px;
   font-weight: 900;
-  letter-spacing: 2px;
   color: var(--accent-red);
   margin-bottom: 16px;
 }
@@ -613,144 +1161,106 @@ html, body {
 .side-name {
   font-family: var(--font-orbitron);
   font-size: 13px;
-  font-weight: 800;
-  color: #fff;
-  margin-bottom: 8px;
+  font-weight: 700;
 }
-.dice-row {
-  display: flex;
-  gap: 6px;
-  justify-content: center;
+.troop-count {
+  font-size: 11px;
+  color: #94a3b8;
 }
-.tactical-die {
-  width: 36px;
-  height: 36px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-orbitron);
-  font-size: 16px;
-  font-weight: 800;
-}
-.tactical-die.atk { background: var(--accent-cyan); color: #030712; }
-.tactical-die.def { background: var(--accent-red); color: #fff; }
 .vs-divider {
   font-family: var(--font-orbitron);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 900;
-  color: var(--accent-red);
+  color: #f59e0b;
 }
 .clash-result {
   font-family: var(--font-orbitron);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
-  color: var(--accent-gold);
-  letter-spacing: 1px;
+  color: #ffd700;
 }
 
-.trophy { font-size: 54px; margin-bottom: 8px; }
+/* Victory Box */
+.victory-box {
+  border-color: #ffd700;
+  box-shadow: 0 0 50px rgba(255, 215, 0, 0.4);
+}
+.victory-box .trophy {
+  font-size: 48px;
+  margin-bottom: 10px;
+}
 .victory-box h2 {
   font-family: var(--font-orbitron);
-  font-size: 28px;
-  color: var(--accent-gold);
-  margin-bottom: 8px;
+  font-size: 20px;
+  color: #ffd700;
+  margin-bottom: 10px;
 }
 .victory-box p {
-  color: #94a3b8;
-  font-size: 14px;
-  margin-bottom: 20px;
+  font-size: 13px;
+  color: #cbd5e1;
+  margin-bottom: 18px;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+/* Toast Notifications */
+.toast-notification {
+  position: fixed;
+  top: 68px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid var(--accent-cyan);
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-family: var(--font-orbitron);
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8), 0 0 15px rgba(0, 240, 255, 0.3);
+  z-index: 100;
+  animation: toastFade 0.3s ease-out;
+}
+@keyframes toastFade {
+  from { opacity: 0; transform: translate(-50%, -10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   MOBILE RESPONSIVE ENHANCEMENTS
+   DISCORD ACTIVITY & MOBILE RESPONSIVE
    ════════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
-  /* Prevent scrolling / bouncing on mobile Safari/Chrome */
-  body {
-    position: fixed;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-  }
-
-  /* Main Menu on Mobile Portrait */
-  .menu-stage-wrapper {
-    width: 100vw;
-    height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .menu-art-bg {
-    width: 100%;
-    height: 100%;
-    object-fit: contain; /* Don't distort aspect ratio on tall phone screens */
-    background: #02040a;
-  }
-
-  /* Make click hotspots larger and easier to tap on phones */
-  .hotspot-create {
-    left: 20%;
-    bottom: 2%;
-    width: 28%;
-    height: 18%;
-  }
-
-  .hotspot-join {
-    left: 52%;
-    bottom: 2%;
-    width: 28%;
-    height: 18%;
-  }
-
-  /* In-Game HUD on Mobile */
   .tactical-top-hud {
-    height: 48px;
-    padding: 0 10px;
+    height: 50px;
+    padding: 0 8px;
+    gap: 6px;
   }
-  .hud-title {
-    display: none; /* Save space on small phone screens */
+  .hud-country {
+    font-size: 11px;
   }
-  .hud-player-turn {
-    font-size: 12px;
+  .metric-pill {
+    padding: 3px 8px;
   }
-  .hud-phase-pill {
-    font-size: 9px;
-    padding: 2px 8px;
+  .metric-data .value {
+    font-size: 11px;
   }
-  .btn-hud-next {
-    padding: 6px 12px;
-    font-size: 10px;
+  .btn-hud-action .act-text {
+    display: none;
   }
-  .btn-hud-hq {
-    padding: 5px 8px;
-    font-size: 10px;
+  .btn-hud-action {
+    padding: 6px 8px;
   }
-
-  /* Hide bulky side panels on small mobile screens to keep the map full & clear */
+  .city-upgrades-grid {
+    grid-template-columns: 1fr;
+  }
+  .city-operations-row {
+    grid-template-columns: 1fr;
+  }
   .factions-hud-panel {
-    top: 54px;
-    left: 8px;
-    width: 140px;
-    padding: 6px;
-    font-size: 10px;
-    background: rgba(9, 14, 28, 0.8);
+    display: none;
   }
   .battle-log-hud {
-    display: none; /* Hide battle log on mobile to keep map clean */
+    display: none;
   }
-
-  /* Modals on Mobile */
-  .clean-modal-box {
-    width: 95%;
-    max-height: 90vh;
-    overflow-y: auto;
+  .tech-tree-wrapper {
+    grid-template-columns: 1fr;
   }
 }

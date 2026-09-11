@@ -1,0 +1,74 @@
+{
+  "austria_hungary": {
+    "name": "Austria-Hungarian Empire",
+    "icon": "👑",
+    "color": "#c0392b",
+    "cities": ["Vienna", "Budapest", "Prague", "Bratislava", "Zagreb"],
+    "reward": { "money": 500, "manpower": 250, "incomeBonus": 15 },
+    "description": "Unite the crown lands of the Danube under the Habsburg banner."
+  },
+  "german_empire": {
+    "name": "German Empire",
+    "icon": "🦅",
+    "color": "#2c3e50",
+    "cities": ["Berlin", "Munich", "Frankfurt", "Hamburg", "Warsaw", "Strasbourg"],
+    "reward": { "money": 600, "manpower": 300, "incomeBonus": 20 },
+    "description": "Forge the Kaiserreich from the Rhine to the Vistula."
+  },
+  "byzantine_empire": {
+    "name": "Byzantine Empire",
+    "icon": "🏛️",
+    "color": "#8e44ad",
+    "cities": ["Athens", "Thessaloniki", "Istanbul", "Sofia"],
+    "reward": { "money": 450, "manpower": 200, "incomeBonus": 18 },
+    "description": "Restore Eastern Rome from Constantinople to the Peloponnese."
+  },
+  "russian_empire": {
+    "name": "Russian Empire",
+    "icon": "⚔️",
+    "color": "#16a085",
+    "cities": ["Moscow", "St. Petersburg", "Kyiv", "Minsk", "Warsaw"],
+    "reward": { "money": 700, "manpower": 400, "incomeBonus": 25 },
+    "description": "Rule all Rus' lands across the vast eastern steppes."
+  },
+  "iberian_union": {
+    "name": "Iberian Union",
+    "icon": "🏰",
+    "color": "#d35400",
+    "cities": ["Madrid", "Lisbon", "Barcelona", "Seville", "Porto"],
+    "reward": { "money": 450, "manpower": 200, "incomeBonus": 16 },
+    "description": "Unite the realms of Spain and Portugal into an ocean-spanning empire."
+  },
+  "kalmar_union": {
+    "name": "Kalmar Union",
+    "icon": "⚓",
+    "color": "#2980b9",
+    "cities": ["Stockholm", "Oslo", "Copenhagen", "Helsinki"],
+    "reward": { "money": 400, "manpower": 180, "incomeBonus": 15 },
+    "description": "Rule over the northern seas and unite Scandinavia."
+  },
+  "roman_empire": {
+    "name": "Imperium Romanum",
+    "icon": "🛡️",
+    "color": "#962d3e",
+    "cities": ["Rome", "Milan", "Paris", "Madrid", "London", "Athens"],
+    "reward": { "money": 1000, "manpower": 500, "incomeBonus": 35 },
+    "description": "Rebuild the greatest Mediterranean empire in human history."
+  },
+  "polish_lithuanian_commonwealth": {
+    "name": "Polish-Lithuanian Commonwealth",
+    "icon": "🪓",
+    "color": "#e74c3c",
+    "cities": ["Warsaw", "Krakow", "Vilnius", "Minsk", "Kyiv"],
+    "reward": { "money": 500, "manpower": 280, "incomeBonus": 18 },
+    "description": "Revive the Golden Liberty between Poland and the Grand Duchy of Lithuania."
+  },
+  "ottoman_empire": {
+    "name": "Ottoman Empire",
+    "icon": "🌙",
+    "color": "#27ae60",
+    "cities": ["Istanbul", "Ankara", "Izmir", "Sofia", "Athens", "Bucharest"],
+    "reward": { "money": 650, "manpower": 350, "incomeBonus": 22 },
+    "description": "Restore the Sublime Porte over the Balkans and Anatolia."
+  }
+}

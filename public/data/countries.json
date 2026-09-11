@@ -1,0 +1,197 @@
+{
+  "France": {
+    "color": "#3b82f6", "darkColor": "#1e40af",
+    "cities": ["Paris", "Lyon", "Marseille", "Bordeaux", "Strasbourg"],
+    "startMoney": 200, "startManpower": 150, "difficulty": "Easy"
+  },
+  "United Kingdom": {
+    "color": "#ef4444", "darkColor": "#991b1b",
+    "cities": ["London", "Edinburgh"],
+    "startMoney": 180, "startManpower": 100, "difficulty": "Easy"
+  },
+  "Germany": {
+    "color": "#64748b", "darkColor": "#334155",
+    "cities": ["Berlin", "Munich", "Hamburg", "Frankfurt", "Cologne"],
+    "startMoney": 250, "startManpower": 180, "difficulty": "Easy"
+  },
+  "Spain": {
+    "color": "#f59e0b", "darkColor": "#b45309",
+    "cities": ["Madrid", "Barcelona", "Seville", "Malaga", "Valencia"],
+    "startMoney": 190, "startManpower": 140, "difficulty": "Medium"
+  },
+  "Portugal": {
+    "color": "#10b981", "darkColor": "#065f46",
+    "cities": ["Lisbon", "Porto"],
+    "startMoney": 100, "startManpower": 60, "difficulty": "Hard"
+  },
+  "Italy": {
+    "color": "#84cc16", "darkColor": "#3f6212",
+    "cities": ["Rome", "Milan", "Naples", "Venice"],
+    "startMoney": 200, "startManpower": 130, "difficulty": "Medium"
+  },
+  "Poland": {
+    "color": "#ec4899", "darkColor": "#9d174d",
+    "cities": ["Warsaw", "Krakow", "Gdansk", "Wroclaw"],
+    "startMoney": 150, "startManpower": 160, "difficulty": "Medium"
+  },
+  "Ukraine": {
+    "color": "#06b6d4", "darkColor": "#0e7490",
+    "cities": ["Kyiv", "Odesa", "Lviv", "Kharkiv"],
+    "startMoney": 130, "startManpower": 180, "difficulty": "Hard"
+  },
+  "Russia": {
+    "color": "#10f070", "darkColor": "#047857",
+    "cities": ["Moscow", "St. Petersburg", "Nizhny Novgorod", "Kaliningrad"],
+    "startMoney": 220, "startManpower": 250, "difficulty": "Easy"
+  },
+  "Sweden": {
+    "color": "#38bdf8", "darkColor": "#0369a1",
+    "cities": ["Stockholm", "Gothenburg"],
+    "startMoney": 120, "startManpower": 70, "difficulty": "Medium"
+  },
+  "Norway": {
+    "color": "#f43f5e", "darkColor": "#be123c",
+    "cities": ["Oslo", "Bergen"],
+    "startMoney": 130, "startManpower": 60, "difficulty": "Medium"
+  },
+  "Finland": {
+    "color": "#a855f7", "darkColor": "#7e22ce",
+    "cities": ["Helsinki", "Tampere"],
+    "startMoney": 100, "startManpower": 60, "difficulty": "Hard"
+  },
+  "Austria": {
+    "color": "#e2e8f0", "darkColor": "#94a3b8",
+    "cities": ["Vienna", "Innsbruck", "Graz"],
+    "startMoney": 140, "startManpower": 90, "difficulty": "Medium"
+  },
+  "Switzerland": {
+    "color": "#f87171", "darkColor": "#dc2626",
+    "cities": ["Bern"],
+    "startMoney": 120, "startManpower": 40, "difficulty": "Hard"
+  },
+  "Netherlands": {
+    "color": "#fb923c", "darkColor": "#ea580c",
+    "cities": ["Amsterdam"],
+    "startMoney": 130, "startManpower": 50, "difficulty": "Medium"
+  },
+  "Belgium": {
+    "color": "#fbbf24", "darkColor": "#d97706",
+    "cities": ["Brussels"],
+    "startMoney": 100, "startManpower": 40, "difficulty": "Hard"
+  },
+  "Czechia": {
+    "color": "#a3e635", "darkColor": "#65a30d",
+    "cities": ["Prague"],
+    "startMoney": 80, "startManpower": 50, "difficulty": "Hard"
+  },
+  "Slovakia": {
+    "color": "#2dd4bf", "darkColor": "#0d9488",
+    "cities": ["Bratislava"],
+    "startMoney": 60, "startManpower": 40, "difficulty": "Hard"
+  },
+  "Hungary": {
+    "color": "#facc15", "darkColor": "#ca8a04",
+    "cities": ["Budapest", "Debrecen"],
+    "startMoney": 90, "startManpower": 80, "difficulty": "Medium"
+  },
+  "Romania": {
+    "color": "#38bdf8", "darkColor": "#0284c7",
+    "cities": ["Bucharest", "Cluj", "Constanta"],
+    "startMoney": 110, "startManpower": 100, "difficulty": "Medium"
+  },
+  "Bulgaria": {
+    "color": "#c084fc", "darkColor": "#9333ea",
+    "cities": ["Sofia", "Plovdiv"],
+    "startMoney": 70, "startManpower": 70, "difficulty": "Hard"
+  },
+  "Greece": {
+    "color": "#60a5fa", "darkColor": "#2563eb",
+    "cities": ["Athens", "Thessaloniki"],
+    "startMoney": 90, "startManpower": 60, "difficulty": "Medium"
+  },
+  "Turkey": {
+    "color": "#e11d48", "darkColor": "#be123c",
+    "cities": ["Istanbul", "Ankara", "Izmir"],
+    "startMoney": 170, "startManpower": 160, "difficulty": "Medium"
+  },
+  "Denmark": {
+    "color": "#f472b6", "darkColor": "#db2777",
+    "cities": ["Copenhagen"],
+    "startMoney": 80, "startManpower": 40, "difficulty": "Hard"
+  },
+  "Ireland": {
+    "color": "#34d399", "darkColor": "#059669",
+    "cities": ["Dublin"],
+    "startMoney": 70, "startManpower": 35, "difficulty": "Hard"
+  },
+  "Iceland": {
+    "color": "#e0e7ff", "darkColor": "#818cf8",
+    "cities": ["Reykjavik"],
+    "startMoney": 40, "startManpower": 20, "difficulty": "Extreme"
+  },
+  "Belarus": {
+    "color": "#4ade80", "darkColor": "#16a34a",
+    "cities": ["Minsk"],
+    "startMoney": 60, "startManpower": 60, "difficulty": "Hard"
+  },
+  "Lithuania": {
+    "color": "#e879f9", "darkColor": "#c026d3",
+    "cities": ["Vilnius"],
+    "startMoney": 50, "startManpower": 35, "difficulty": "Hard"
+  },
+  "Latvia": {
+    "color": "#67e8f9", "darkColor": "#06b6d4",
+    "cities": ["Riga"],
+    "startMoney": 50, "startManpower": 30, "difficulty": "Hard"
+  },
+  "Estonia": {
+    "color": "#93c5fd", "darkColor": "#3b82f6",
+    "cities": ["Tallinn"],
+    "startMoney": 50, "startManpower": 30, "difficulty": "Hard"
+  },
+  "Serbia": {
+    "color": "#fb7185", "darkColor": "#e11d48",
+    "cities": ["Belgrade"],
+    "startMoney": 60, "startManpower": 55, "difficulty": "Hard"
+  },
+  "Croatia": {
+    "color": "#fbbf24", "darkColor": "#d97706",
+    "cities": ["Zagreb"],
+    "startMoney": 55, "startManpower": 40, "difficulty": "Hard"
+  },
+  "Bosnia and Herzegovina": {
+    "color": "#a78bfa", "darkColor": "#7c3aed",
+    "cities": ["Sarajevo"],
+    "startMoney": 35, "startManpower": 30, "difficulty": "Extreme"
+  },
+  "Albania": {
+    "color": "#f43f5e", "darkColor": "#be123c",
+    "cities": ["Tirana"],
+    "startMoney": 30, "startManpower": 25, "difficulty": "Extreme"
+  },
+  "North Macedonia": {
+    "color": "#fcd34d", "darkColor": "#d97706",
+    "cities": ["Skopje"],
+    "startMoney": 30, "startManpower": 25, "difficulty": "Extreme"
+  },
+  "Montenegro": {
+    "color": "#5eead4", "darkColor": "#0d9488",
+    "cities": ["Podgorica"],
+    "startMoney": 25, "startManpower": 20, "difficulty": "Extreme"
+  },
+  "Moldova": {
+    "color": "#d8b4fe", "darkColor": "#a855f7",
+    "cities": ["Chisinau"],
+    "startMoney": 25, "startManpower": 25, "difficulty": "Extreme"
+  },
+  "Slovenia": {
+    "color": "#a7f3d0", "darkColor": "#34d399",
+    "cities": ["Ljubljana"],
+    "startMoney": 50, "startManpower": 25, "difficulty": "Extreme"
+  },
+  "Luxembourg": {
+    "color": "#fde68a", "darkColor": "#f59e0b",
+    "cities": ["Luxembourg"],
+    "startMoney": 70, "startManpower": 15, "difficulty": "Extreme"
+  }
+}
